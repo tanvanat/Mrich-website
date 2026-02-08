@@ -8,7 +8,9 @@ function isAuthed(req: Request) {
 }
 
 export async function GET(req: Request) {
-  if (!isAuthed(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!isAuthed(req)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
 
   const rows = await prisma.response.findMany({
     orderBy: { createdAt: "desc" },
