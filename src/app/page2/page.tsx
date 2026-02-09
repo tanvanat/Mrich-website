@@ -14,9 +14,9 @@ export default function Page2() {
 
       <div className="relative z-10 p-6">
         <div className="bg-black/60 p-6 rounded-xl text-center text-white shadow-lg">
-          <h1 className="text-3xl sm:text-5xl font-bold mb-4">MRICH</h1>
+          <h1 className="text-3xl sm:text-5xl font-bold mb-4">Multi Rich Academy</h1>
           <p className="text-lg sm:text-xl">
-            โรงเรียน "สร้างนิสัย" <br />
+            สถาบัน "สร้างนิสัยผู้นำ" <br />
             ที่ทำให้คุณมีความสุขเเละความสำเร็จใน<br />
             ทุกด้านของชีวิต
           </p>

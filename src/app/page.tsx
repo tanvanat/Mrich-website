@@ -17,8 +17,8 @@ export default function Firstpage() {
           <div className="bg-black/60 p-6 rounded-xl text-center text-white shadow-lg">
             <div className="font-bold text-4xl leading-snug">
               BECOME A<br />
+              DEPLOMAT<br />
               LEADER<br />
-              RANKED 6TH<br />
               WITH MRICH
             </div>
 
