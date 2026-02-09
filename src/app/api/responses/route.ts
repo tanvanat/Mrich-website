@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { FORM_ID, questions, maxTotal, levelFromPercent } from "@/lib/questions";
 
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth-options"; // ✅ เปลี่ยน path ถ้าไฟล์คุณอยู่ที่อื่น
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 
 // -----------------------------
 // Rate limit (simple in-memory)
