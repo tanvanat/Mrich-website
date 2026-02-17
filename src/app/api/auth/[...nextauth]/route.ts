@@ -3,6 +3,20 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
+// ฟังก์ชันสำหรับอ่าน Admin Emails จาก environment variables
+function adminSet() {
+  const raw = process.env.ADMIN_EMAILS ?? "";
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+const ADMINS = adminSet();
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -11,16 +25,91 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          prompt: "select_account",  // เพิ่มตรงนี้ เพื่อให้เลือกบัญชีทุกครั้ง
+          prompt: "select_account", // บังคับให้เลือกบัญชีทุกครั้ง
           access_type: "offline",
-          response_type: "code"
-        }
-      }
+          response_type: "code",
+        },
+      },
     }),
   ],
-  session: { strategy: "database" },
+
+  // ✅ ใช้ JWT strategy เพื่อให้ middleware ตรวจสอบ role ได้ง่าย
+  session: { 
+    strategy: "jwt" 
+  },
+
   secret: process.env.NEXTAUTH_SECRET,
-  // ถ้ามี callbacks หรือการตั้งค่าอื่นๆ ก็ใส่ไว้ตรงนี้
+
+  callbacks: {
+    // ตรวจสอบการ Sign In
+    async signIn({ user }) {
+      // ต้องมี email เท่านั้นถึงจะเข้าได้
+      return !!user.email; 
+    },
+
+    // JWT callback - ทำงานเมื่อมีการสร้างหรืออัปเดต JWT
+    async jwt({ token, user }) {
+      // กรณี Login ครั้งแรก (user จะมีค่า)
+      if (user?.email) {
+        const email = user.email.toLowerCase();
+        // ตรวจสอบว่าเป็น Admin หรือไม่จาก ADMIN_EMAILS
+        const role = ADMINS.has(email) ? "ADMIN" : "USER";
+
+        // อัปเดต role ในฐานข้อมูลให้ตรงกับ environment variables
+        await prisma.user.update({
+          where: { email: user.email },
+          data: { role: role as any },
+        });
+
+        // เก็บข้อมูลลงใน token
+        token.email = user.email;
+        (token as any).role = role;
+      } 
+      // กรณี Refresh token (user ไม่มีค่า แต่ token มีค่า)
+      else if (token?.email) {
+        // ดึง role ล่าสุดจากฐานข้อมูล
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email as string },
+          select: { role: true },
+        });
+        
+        // อัปเดต role ใน token ให้ตรงกับฐานข้อมูล
+        (token as any).role = dbUser?.role ?? "USER";
+      }
+      
+      return token;
+    },
+
+    // Session callback - ทำงานทุกครั้งที่เรียก useSession() หรือ getSession()
+    async session({ session, token }) {
+      if (session.user) {
+        // ส่งข้อมูลจาก token ไปยัง session
+        session.user.email = token.email as string;
+        (session.user as any).role = (token as any).role ?? "USER";
+        (session.user as any).id = token.sub; // เพิ่ม user id ถ้าต้องการ
+      }
+      return session;
+    },
+  },
+
+  // เพิ่ม pages ที่กำหนดเอง (ถ้าต้องการ)
+  pages: {
+    signIn: '/login',
+    error: '/login', // หน้า error
+  },
+
+  // เพิ่ม event handlers (optional)
+  events: {
+    async signIn({ user }) {
+      console.log(`User signed in: ${user.email}`);
+    },
+    async signOut({ token }) {
+      console.log(`User signed out: ${token.email}`);
+    },
+  },
+
+  // เพิ่ม debug mode ใน development
+  debug: process.env.NODE_ENV === 'development',
 };
 
 const handler = NextAuth(authOptions);

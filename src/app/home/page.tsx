@@ -12,7 +12,6 @@ export default function HomePage() {
 
   const [dragging, setDragging] = useState<number | null>(null);
   const [showPopup, setShowPopup] = useState(true);
-  
 
   // ถ้าไม่ได้ login ให้เด้งกลับ /signin
   useEffect(() => {
@@ -72,6 +71,22 @@ export default function HomePage() {
             </button>
           </div>
         </div>
+
+        {(session?.user as any)?.role === "ADMIN" && (
+          <a
+            href="/admin/exam"
+            style={{
+              padding: "10px 14px",
+              borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.25)",
+              color: "#e5e7eb",
+              fontWeight: 900,
+              textDecoration: "none",
+            }}
+          >
+            ไปหน้า Admin Dashboard
+          </a>
+        )}
 
         {/* Course Cards (ลากได้) */}
         <div className="flex flex-col items-center mt-20 relative w-full">

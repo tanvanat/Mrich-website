@@ -18,6 +18,9 @@ model User {
   accounts      Account[]
   responses     Response[]
   sessions      Session[]
+
+  // ✅ เพิ่ม
+  examStates    ExamState[]
 }
 
 model Account {
@@ -75,4 +78,27 @@ model Response {
 enum Role {
   USER
   ADMIN
+}
+
+model ExamState {
+  id           String   @id @default(cuid())
+  userId       String
+  formId       String   @default("mrich-assessment-v1")
+
+  // token ของ "รอบนี้" ใช้กันปลอม submit ข้ามรอบ
+  attemptToken String   @unique @default(cuid())
+
+  // เวลาเริ่มทำรอบนี้ (DB เป็นแหล่งจริง -> refresh ก็ยังนับต่อ)
+  startedAt    DateTime?
+
+  // user ส่งแล้วหรือหมดเวลาแล้ว = locked (ทำซ้ำไม่ได้จน admin ปลด)
+  locked       Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, formId])
+  @@index([formId, updatedAt])
 }
