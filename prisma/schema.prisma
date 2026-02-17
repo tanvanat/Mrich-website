@@ -1,33 +1,23 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url       = env("DATABASE_URL")
-
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?    @unique
   emailVerified DateTime?
   image         String?
-  role          Role      @default(USER)
-
+  role          Role       @default(USER)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
   accounts      Account[]
-  sessions      Session[]
   responses     Response[]
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
 }
 
 model Account {
@@ -43,8 +33,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -54,8 +43,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -66,33 +54,25 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
 model Response {
-  id         String   @id @default(cuid())
-  formId     String   @default("mrich-assessment-v1")
-
-  // ไม่ต้องให้กรอกชื่อเล่นเองก็ได้ ใช้จาก user.name/email
-  name       String?
-
-  // แนะนำให้เก็บเป็น Json (Postgres jsonb) แทน String
+  id          String   @id @default(cuid())
+  name        String?
+  totalScore  Int
+  maxScore    Int
+  percent     Float
+  level       String
+  tip         String
+  createdAt   DateTime @default(now())
+  formId      String   @default("mrich-assessment-v1")
+  userId      String?
   answersJson Json
-
-  totalScore Int
-  maxScore   Int
-  percent    Float
-  level      String
-  tip        String
-
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  createdAt  DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
 
   @@index([createdAt])
   @@index([userId])
 }
 
+enum Role {
+  USER
+  ADMIN
+}

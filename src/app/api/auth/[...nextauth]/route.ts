@@ -9,10 +9,18 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "select_account",  // เพิ่มตรงนี้ เพื่อให้เลือกบัญชีทุกครั้ง
+          access_type: "offline",
+          response_type: "code"
+        }
+      }
     }),
   ],
   session: { strategy: "database" },
   secret: process.env.NEXTAUTH_SECRET,
+  // ถ้ามี callbacks หรือการตั้งค่าอื่นๆ ก็ใส่ไว้ตรงนี้
 };
 
 const handler = NextAuth(authOptions);
