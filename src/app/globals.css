@@ -24,3 +24,21 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@keyframes flowerFloat {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -18px, 0) rotate(4deg); }
+}
+
+@keyframes flowerSway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+@keyframes flowerGlow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(96,165,250,.35)); }
+  50% { filter: drop-shadow(0 0 22px rgba(96,165,250,.75)); }
+}
+
+/* Helpers */
+.flower-will-change { will-change: transform; }

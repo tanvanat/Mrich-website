@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { questions, maxTotal } from "@/lib/questions";
+import { questions as baseQuestions, maxTotal } from "@/lib/questions";
 import { signIn, signOut, useSession } from "next-auth/react";
 
 type ExamStateResp = {
@@ -10,25 +10,12 @@ type ExamStateResp = {
   startedAt: string | null;
   expiresAt: string | null;
   expired: boolean;
-  // (ถ้ามีใน API ก็ปล่อยไว้ได้ ไม่มีก็ไม่เป็นไร)
   attemptToken?: string;
 };
 
-type ApiOk = {
-  id: string;
-  name: string;
-  totalScore: number;
-  maxScore: number;
-  percent: number;
-  level: string;
-  tip: string;
+type SubmitOk = {
+  id: string; // response id (or whatever backend returns)
 };
-
-function titleForQuestion(raw: string, index1: number) {
-  const s = raw.trim();
-  if (/^\d+[.)]\s*/.test(s)) return s;
-  return `${index1}) ${s}`;
-}
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -41,28 +28,67 @@ function formatMMSS(totalSec: number) {
   return `${pad2(m)}:${pad2(s)}`;
 }
 
+function titleForQuestion(raw: string, index1: number) {
+  const s = raw.trim();
+  if (/^\d+[.)]\s*/.test(s)) return s;
+  return `${index1}) ${s}`;
+}
+
+/** ✅ replace specific questions (by number in text, or fallback by index) */
+function patchQuestions(qs: any[]) {
+  const next = qs.map((q) => ({ ...q }));
+
+  const replacements: Record<number, string> = {
+    5: `5.ถ้าต้องการเปลี่ยนแปลงชีวิต กระดุมเม็ดแรกที่ต้องเปลี่ยนคืออะไร?`,
+    25: `25.การทำ P/PC ให้สมดุคือทำอะไร?`,
+    26: `26.สินทรัพย์ที่เป็น "ทรัพย์สิน" ที่เราต้องสะสมให้มากมีกี่อย่าง อะไรบ้าง?`,
+  };
+
+  const leadNo = (s: string) => {
+    const m = String(s ?? "").trim().match(/^(\d+)\s*[.)]/);
+    return m ? Number(m[1]) : null;
+  };
+
+  const done = new Set<number>();
+  for (let i = 0; i < next.length; i++) {
+    const n = leadNo(next[i]?.q);
+    if (n && replacements[n]) {
+      next[i].q = replacements[n];
+      done.add(n);
+    }
+  }
+
+  const fallbackIndexMap: Record<number, number> = { 5: 4, 25: 24, 26: 25 };
+  for (const nStr of Object.keys(replacements)) {
+    const n = Number(nStr);
+    if (done.has(n)) continue;
+    const idx = fallbackIndexMap[n];
+    if (idx >= 0 && idx < next.length) next[idx].q = replacements[n];
+  }
+
+  return next;
+}
+
 export default function Page() {
   const { data: session, status } = useSession();
 
-  const [answers, setAnswers] = useState<string[]>(Array(questions.length).fill(""));
+  const questions = useMemo(() => patchQuestions(baseQuestions as any[]), []);
+  const [answers, setAnswers] = useState<string[]>(() => Array(questions.length).fill(""));
+
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ApiOk | null>(null);
+  const [submitOk, setSubmitOk] = useState<SubmitOk | null>(null);
 
   const [state, setState] = useState<ExamStateResp | null>(null);
-
-  // ใช้ nowMs ทำให้ countdown เดิน
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   const isAuthed = !!session?.user;
   const displayName = (session?.user?.name ?? session?.user?.email ?? "").trim();
 
-  // ✅ ticker: เดินตลอด (ให้ UI อัปเดต)
   useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 250);
     return () => clearInterval(t);
   }, []);
 
-  // ✅ ดึง state จาก server แบบไม่ cache
   async function loadState() {
     const res = await fetch("/api/exam/state", { cache: "no-store" });
     const data = await res.json().catch(() => null);
@@ -77,9 +103,8 @@ export default function Page() {
     if (isAuthed) loadState();
   }, [isAuthed]);
 
-  // ✅ คำนวณเวลา: ถ้า state ยังไม่มี expiresAt ให้โชว์ 00:00 แทน (หรือ "กำลังโหลด")
   const secondsLeft = useMemo(() => {
-    if (!state?.expiresAt) return 0; // 🔥 ไม่ fallback 30 นาที เพราะจะทำให้ค้าง 30:00
+    if (!state?.expiresAt) return 0;
     const end = new Date(state.expiresAt).getTime();
     return Math.max(0, Math.ceil((end - nowMs) / 1000));
   }, [state?.expiresAt, nowMs]);
@@ -87,9 +112,6 @@ export default function Page() {
   const isExpired = (state?.expired ?? false) || secondsLeft <= 0;
   const locked = !!state?.locked;
 
-  // ✅ lock input:
-  // - USER: lock ถ้า locked หรือหมดเวลา
-  // - ADMIN: ทำได้เสมอ (แต่เวลาเดินปกติ)
   const isLockedForInput = useMemo(() => {
     if (!state) return true;
     if (state.role === "ADMIN") return false;
@@ -98,7 +120,7 @@ export default function Page() {
 
   const canSubmit = useMemo(() => {
     if (!state || !isAuthed) return false;
-    if (!state.expiresAt) return false; // ยังไม่พร้อม
+    if (!state.expiresAt) return false;
     if (state.role === "USER" && (locked || isExpired)) return false;
     if (isExpired) return false;
     return answers.every((v) => v.trim().length > 0);
@@ -108,13 +130,12 @@ export default function Page() {
     if (!canSubmit || loading) return;
 
     setLoading(true);
-    setResult(null);
+    setSubmitOk(null);
 
     try {
       const res = await fetch("/api/exam/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // แนะนำส่ง meta ไปด้วย (ถ้า backend รับ)
         body: JSON.stringify({
           answers,
           attemptToken: state?.attemptToken,
@@ -129,7 +150,8 @@ export default function Page() {
         return;
       }
 
-      setResult(data as ApiOk);
+      // ✅ no scoring now — just show “submitted”
+      setSubmitOk({ id: data?.id ?? "-" });
       await loadState();
 
       setTimeout(() => {
@@ -140,7 +162,6 @@ export default function Page() {
     }
   }
 
-  // ✅ admin reset timer: เรียก state?reset=1 แล้ว reload
   async function adminResetTimer() {
     if (state?.role !== "ADMIN") return;
     await fetch("/api/exam/state?reset=1", { cache: "no-store" });
@@ -157,260 +178,227 @@ export default function Page() {
   }, [isAuthed, state, secondsLeft]);
 
   return (
-    <main
-      style={{
-        maxWidth: 980,
-        margin: "24px auto",
-        padding: 16,
-        fontFamily: "system-ui",
-        color: "#e5e7eb",
-        background: "linear-gradient(180deg,#0b1220,#0f172a 45%,#0b1220)",
-        minHeight: "100vh",
-      }}
-    >
-      <section
-        style={{
-          borderRadius: 18,
-          padding: 18,
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.12)",
-          boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
-          backdropFilter: "blur(8px)",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 900 }}>แบบทดสอบ Mrich</h1>
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100">
+      {/* keyframes */}
+      <style jsx global>{`
+        @keyframes flowerFloat {
+          0%,
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-18px) rotate(4deg);
+          }
+        }
+        @keyframes flowerGlow {
+          0%,
+          100% {
+            filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.35));
+          }
+          50% {
+            filter: drop-shadow(0 0 18px rgba(96, 165, 250, 0.75));
+          }
+        }
+      `}</style>
+
+      {/* Background Flowers */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-10 right-24 opacity-20 animate-[flowerFloat_4s_ease-in-out_infinite]">
+          <svg width="300" height="300" viewBox="0 0 100 100" className="animate-[flowerGlow_3s_ease-in-out_infinite]">
+            <g transform="translate(50,50)">
+              {[0, 60, 120, 180, 240, 300].map((deg, i) => (
+                <ellipse key={i} rx="20" ry="35" fill="#3b82f6" transform={`rotate(${deg})`} />
+              ))}
+              <circle r="12" fill="#1e3a8a" />
+              <circle r="7" fill="#93c5fd" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute bottom-20 -left-5 opacity-15 animate-[flowerFloat_8s_ease-in-out_infinite_1s]">
+          <svg width="250" height="250" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[0, 72, 144, 216, 288].map((deg, i) => (
+                <ellipse key={i} rx="18" ry="30" fill="#60a5fa" transform={`rotate(${deg})`} />
+              ))}
+              <circle r="10" fill="#1e40af" />
+              <circle r="6" fill="#bfdbfe" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute top-1/3 left-40 opacity-10 animate-[flowerFloat_9s_ease-in-out_infinite_2s]">
+          <svg width="120" height="120" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[0, 90, 180, 270].map((deg, i) => (
+                <ellipse key={i} rx="15" ry="25" fill="#7dd3fc" transform={`rotate(${deg})`} />
+              ))}
+              <circle r="8" fill="#0e7490" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute bottom-1/3 right-20 opacity-10 animate-[flowerFloat_7.5s_ease-in-out_infinite]">
+          <svg width="110" height="110" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[30, 90, 150, 210, 270, 330].map((deg, i) => (
+                <ellipse key={i} rx="12" ry="22" fill="#a5f3fc" transform={`rotate(${deg})`} />
+              ))}
+              <circle r="6" fill="#0e7490" />
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <div className="absolute inset-0 bg-black/25" />
+
+      <main className="relative max-w-5xl mx-auto px-4 sm:px-6 py-10">
+        {/* Header */}
+        <section className="rounded-2xl border border-blue-400/20 bg-white/5 backdrop-blur-xl p-6 shadow-2xl">
+          <div className="flex justify-between gap-4 flex-wrap items-start">
+            <div>
+              <h1 className="m-0 text-2xl sm:text-3xl font-extrabold font-serif drop-shadow-[0_0_20px_rgba(96,165,250,0.5)]">
+                แบบทดสอบ Mrich
+              </h1>
+            </div>
+
+            <div className="flex gap-2 items-center flex-wrap">
+              {status === "loading" ? (
+                <span className="text-blue-200/70 text-sm">กำลังโหลด...</span>
+              ) : isAuthed ? (
+                <>
+                  <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-blue-100 text-xs font-bold max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap" title={displayName}>
+                    {displayName} {state?.role ? <span className="text-blue-200/70">({state.role})</span> : null}
+                  </span>
+
+                  <button
+                    onClick={() => signOut()}
+                    className="rounded-full px-4 py-2 border border-blue-300/25 bg-white/5 hover:bg-white/10 text-blue-100 font-bold transition"
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => signIn("google")}
+                  className="rounded-full px-4 py-2 bg-white text-slate-900 font-extrabold hover:bg-blue-50 transition"
+                >
+                  Sign in with Google
+                </button>
+              )}
+            </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {status === "loading" ? (
-              <span style={{ opacity: 0.8 }}>กำลังโหลด...</span>
-            ) : isAuthed ? (
-              <>
-                <span
-                  style={{
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    background: "rgba(16,185,129,0.15)",
-                    border: "1px solid rgba(16,185,129,0.35)",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    maxWidth: 320,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                  title={displayName}
-                >
-                  {displayName} {state?.role ? <span style={{ opacity: 0.8 }}>({state.role})</span> : null}
-                </span>
+          {/* Pills */}
+          <div className="mt-4 flex gap-2 flex-wrap items-center">
+            <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
+              คะแนนเต็ม (ไว้ก่อน): {maxTotal}
+            </span>
 
-                <button
-                  onClick={() => signOut()}
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    border: "1px solid rgba(255,255,255,0.22)",
-                    background: "transparent",
-                    color: "#e5e7eb",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => signIn("google")}
+            <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
+              ตอบแล้ว: {answeredCount}/{questions.length}
+            </span>
+
+            <span
+              className="ml-auto px-3 py-1 rounded-full text-xs font-extrabold border"
+              style={{
+                background: isExpired ? "rgba(239,68,68,0.16)" : "rgba(59,130,246,0.16)",
+                borderColor: isExpired ? "rgba(239,68,68,0.35)" : "rgba(59,130,246,0.35)",
+              }}
+            >
+              ⏳ {timerLabel}
+            </span>
+
+            {state?.role === "USER" && (
+              <span
+                className="px-3 py-1 rounded-full text-xs font-extrabold border"
                 style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: "none",
-                  background: "#ffffff",
-                  color: "#0f172a",
-                  fontWeight: 900,
-                  cursor: "pointer",
+                  background: locked ? "rgba(34,197,94,0.16)" : "rgba(255,255,255,0.08)",
+                  borderColor: locked ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.14)",
                 }}
               >
-                Sign in with Google
+                {locked ? "✅ ส่งแล้ว (ทำได้ครั้งเดียว)" : "📝 ยังไม่ส่ง"}
+              </span>
+            )}
+          </div>
+
+          {/* Buttons */}
+          <div className="mt-4 flex gap-3 flex-wrap">
+            <button
+              onClick={submit}
+              disabled={!canSubmit || loading || !isAuthed}
+              className={`rounded-full px-6 py-3 font-extrabold transition
+                ${
+                  !canSubmit || loading || !isAuthed
+                    ? "bg-white/20 text-blue-200/60 cursor-not-allowed"
+                    : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 shadow-lg shadow-cyan-400/20"
+                }`}
+            >
+              {loading ? "กำลังส่ง..." : "ส่งคำตอบ"}
+            </button>
+
+            {state?.role === "ADMIN" && (
+              <button
+                onClick={adminResetTimer}
+                disabled={loading || !isAuthed}
+                className="rounded-full px-6 py-3 font-extrabold transition border border-blue-300/25 bg-white/5 hover:bg-white/10 text-blue-100"
+                title="เริ่มเวลา 30 นาทีใหม่ (เฉพาะ admin)"
+              >
+                เริ่มเวลาใหม่ (admin)
               </button>
             )}
           </div>
-        </div>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12, alignItems: "center" }}>
-          <span
-            style={{
-              padding: "6px 10px",
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            คะแนนเต็ม: {maxTotal}
-          </span>
-
-          <span
-            style={{
-              padding: "6px 10px",
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.12)",
-              fontSize: 12,
-              fontWeight: 700,
-            }}
-          >
-            ตอบแล้ว: {answeredCount}/{questions.length}
-          </span>
-
-          <span
-            style={{
-              padding: "6px 10px",
-              borderRadius: 999,
-              background: isExpired ? "rgba(239,68,68,0.18)" : "rgba(59,130,246,0.18)",
-              border: isExpired ? "1px solid rgba(239,68,68,0.35)" : "1px solid rgba(59,130,246,0.35)",
-              fontSize: 12,
-              fontWeight: 900,
-              marginLeft: "auto",
-            }}
-          >
-            ⏳ {timerLabel}
-          </span>
-
-          {state?.role === "USER" && (
-            <span
-              style={{
-                padding: "6px 10px",
-                borderRadius: 999,
-                background: locked ? "rgba(34,197,94,0.18)" : "rgba(255,255,255,0.10)",
-                border: locked ? "1px solid rgba(34,197,94,0.35)" : "1px solid rgba(255,255,255,0.12)",
-                fontSize: 12,
-                fontWeight: 900,
-              }}
-            >
-              {locked ? "✅ ส่งแล้ว (ทำได้ครั้งเดียว)" : "📝 ยังไม่ส่ง"}
-            </span>
+          {state?.role === "USER" && (isExpired || locked) && (
+            <div className="mt-3 text-rose-200 font-bold">
+              {locked ? "คุณส่งแล้ว (ทำได้ครั้งเดียว)" : "หมดเวลาแล้ว"} — ติดต่อ Admin เพื่อปลดล็อค
+            </div>
           )}
-        </div>
+        </section>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-          <button
-            onClick={submit}
-            disabled={!canSubmit || loading || !isAuthed}
-            style={{
-              padding: "12px 16px",
-              borderRadius: 12,
-              border: "none",
-              background: !canSubmit || loading || !isAuthed ? "#94a3b8" : "#06b6d4",
-              color: "#001018",
-              fontWeight: 900,
-              cursor: !canSubmit || loading || !isAuthed ? "not-allowed" : "pointer",
-            }}
-          >
-            {loading ? "กำลังส่ง..." : "ส่งและดูผล"}
-          </button>
+        <div className="h-6" />
 
-          {/* ✅ ปุ่ม admin reset timer */}
-          {state?.role === "ADMIN" && (
-            <button
-              onClick={adminResetTimer}
-              disabled={loading || !isAuthed}
-              style={{
-                padding: "12px 16px",
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.22)",
-                background: "rgba(59,130,246,0.18)",
-                color: "#e5e7eb",
-                fontWeight: 900,
-                cursor: loading || !isAuthed ? "not-allowed" : "pointer",
-              }}
-              title="เริ่มเวลา 30 นาทีใหม่ (เฉพาะ admin)"
+        {/* Questions */}
+        <div className="space-y-4">
+          {questions.map((q, qIdx) => (
+            <section
+              key={q.id}
+              className="rounded-2xl border border-blue-300/15 bg-white/5 backdrop-blur-xl p-5 shadow-xl"
+              style={{ opacity: isLockedForInput ? 0.88 : 1 }}
             >
-              เริ่มเวลาใหม่ (admin)
-            </button>
-          )}
+              <div className="font-extrabold text-blue-50 text-base sm:text-lg">
+                {titleForQuestion(q.q, qIdx + 1)}
+              </div>
+
+              <textarea
+                value={answers[qIdx]}
+                onChange={(e) => {
+                  const next = [...answers];
+                  next[qIdx] = e.target.value;
+                  setAnswers(next);
+                }}
+                placeholder={isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."}
+                disabled={isLockedForInput}
+                className={`mt-3 w-full rounded-xl border px-4 py-3 text-sm sm:text-base leading-relaxed outline-none resize-y
+                  ${
+                    isLockedForInput
+                      ? "bg-black/20 border-blue-300/10 text-blue-100/70"
+                      : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
+                  }`}
+                style={{ minHeight: 120 }}
+              />
+            </section>
+          ))}
         </div>
 
-        {state?.role === "USER" && (isExpired || locked) && (
-          <div style={{ marginTop: 12, color: "#fecaca", fontWeight: 800 }}>
-            {locked ? "คุณส่งแล้ว (ทำได้ครั้งเดียว)" : "หมดเวลาแล้ว"} — ติดต่อ Admin เพื่อปลดล็อค
-          </div>
+        {/* Submitted */}
+        {submitOk && (
+          <section className="mt-8 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 backdrop-blur-xl p-6 shadow-2xl">
+            <h2 className="m-0 text-xl font-extrabold text-emerald-100">ส่งคำตอบแล้ว ✅</h2>
+            <div className="mt-4 text-xs text-emerald-100/70">Response ID: {submitOk.id}</div>
+          </section>
         )}
-      </section>
-
-      <div style={{ height: 14 }} />
-
-      {questions.map((q, qIdx) => (
-        <section
-          key={q.id}
-          style={{
-            background: "#ffffff",
-            borderRadius: 18,
-            padding: 16,
-            border: "1px solid #e5e7eb",
-            boxShadow: "0 14px 40px rgba(0,0,0,0.18)",
-            marginBottom: 14,
-            color: "#0f172a",
-            opacity: isLockedForInput ? 0.85 : 1,
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 16 }}>{titleForQuestion(q.q, qIdx + 1)}</div>
-
-          <textarea
-            value={answers[qIdx]}
-            onChange={(e) => {
-              const next = [...answers];
-              next[qIdx] = e.target.value;
-              setAnswers(next);
-            }}
-            placeholder={isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."}
-            disabled={isLockedForInput}
-            style={{
-              width: "100%",
-              marginTop: 12,
-              minHeight: 110,
-              padding: 12,
-              borderRadius: 14,
-              border: "1px solid #e2e8f0",
-              outline: "none",
-              fontSize: 14,
-              lineHeight: 1.5,
-              resize: "vertical",
-              background: isLockedForInput ? "#f8fafc" : "#ffffff",
-            }}
-          />
-        </section>
-      ))}
-
-      {result && (
-        <section
-          style={{
-            marginTop: 18,
-            padding: 16,
-            borderRadius: 18,
-            border: "1px solid #86efac",
-            background: "#f0fdf4",
-            color: "#052e16",
-          }}
-        >
-          <h2 style={{ marginTop: 0, marginBottom: 8 }}>ผลการสอบ</h2>
-          <div>
-            ผู้ทำ: <b>{result.name}</b>
-          </div>
-          <div style={{ marginTop: 6 }}>
-            คะแนน: <b>{result.totalScore}</b> / {result.maxScore} ({result.percent}%)
-          </div>
-          <div style={{ marginTop: 6 }}>
-            สถานะ: <b>{result.level}</b>
-          </div>
-          <div style={{ marginTop: 10, fontWeight: 800 }}>{result.tip}</div>
-          <div style={{ marginTop: 10, fontSize: 12, color: "#475569" }}>ID: {result.id}</div>
-        </section>
-      )}
-    </main>
+      </main>
+    </div>
   );
 }
