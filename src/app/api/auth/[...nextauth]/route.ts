@@ -94,8 +94,8 @@ export const authOptions: NextAuthOptions = {
 
   // เพิ่ม pages ที่กำหนดเอง (ถ้าต้องการ)
   pages: {
-    signIn: '/login',
-    error: '/login', // หน้า error
+    signIn: "/signin",
+    error: "/signin", // หน้า error
   },
 
   // เพิ่ม event handlers (optional)
