@@ -5,6 +5,16 @@ import { getToken } from "next-auth/jwt";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // ✅ allow NextAuth + Next.js internals always
+  if (
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/_next") ||
+    pathname === "/favicon.ico"
+  ) {
+    return NextResponse.next();
+  }
+
+  // ✅ protect only these routes
   const needAuth =
     pathname.startsWith("/home") ||
     pathname.startsWith("/form") ||
@@ -13,11 +23,17 @@ export async function middleware(req: NextRequest) {
 
   if (!needAuth) return NextResponse.next();
 
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
 
-  // ยังไม่ login
+  // ยังไม่ login → ไปหน้า signin
   if (!token?.email) {
-    const url = new URL("/signin", req.url);
+    const url = req.nextUrl.clone();
+    url.pathname = "/signin";
+    // (optional) remember where user wanted to go
+    url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
   }
 
@@ -25,7 +41,9 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith("/admin")) {
     const role = (token as any)?.role;
     if (role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/blocked", req.url));
+      const url = req.nextUrl.clone();
+      url.pathname = "/blocked";
+      return NextResponse.redirect(url);
     }
   }
 
@@ -33,5 +51,8 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/home/:path*", "/form/:path*", "/goal/:path*", "/admin/:path*"],
+  matcher: [
+    // ✅ match everything except NextAuth + Next.js internals
+    "/((?!api/auth|_next/static|_next/image|favicon.ico).*)",
+  ],
 };
