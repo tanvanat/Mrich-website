@@ -292,7 +292,7 @@ export default function Page() {
           {/* Pills */}
           <div className="mt-4 flex gap-2 flex-wrap items-center">
             <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
-              คะแนนเต็ม (ไว้ก่อน): {maxTotal}
+              คะแนนเต็ม: {maxTotal}
             </span>
 
             <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">

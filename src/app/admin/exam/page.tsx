@@ -218,9 +218,6 @@ export default function AdminExamsPage() {
               <h1 className="text-3xl font-bold font-serif drop-shadow-[0_0_20px_rgba(96,165,250,0.5)]">
                 Admin Dashboard — Exam
               </h1>
-              <p className="text-blue-200/70 mt-1">
-                ดูคำตอบ • ปลดล็อค (ตอนนี้ยังไม่ให้คะแนน/level)
-              </p>
 
               <p className="text-xs text-blue-200/60 mt-2">
                 Logged in as:{" "}
