@@ -28,8 +28,6 @@ export default function SignInPage() {
 
   const handleGoogleSignIn = () => signIn("google", { callbackUrl: "/home" });
 
-  const handleFacebookSignIn = () => signIn("facebook", { callbackUrl: "/home" });
-
   return (
     <div className="relative min-h-screen overflow-hidden flex items-center justify-center px-6 text-white bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
       {/* Background Flowers */}
@@ -139,15 +137,6 @@ export default function SignInPage() {
           >
             <img src="/google.png" alt="Google" className="h-5 w-5 object-contain" />
             <span className="text-blue-100">Continue with Google</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleFacebookSignIn}
-            className="w-full h-11 rounded-full border border-blue-300/20 bg-white/5 hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2"
-          >
-            <img src="/facebook.png" alt="Facebook" className="h-5 w-5 object-contain" />
-            <span className="text-blue-100">Continue with Facebook</span>
           </button>
         </div>
 

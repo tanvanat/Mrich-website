@@ -64,7 +64,7 @@ export default function Page2() {
           </h1>
           <p className="text-base sm:text-xl text-blue-200">
             สถาบัน "สร้างนิสัยผู้นำ" <br />
-            ที่ทำให้คุณมีความสุขเเละความสำเร็จใน<br />
+            ที่ทำให้คุณมีความสุขเเละความสำเร็จ<br />
             ทุกด้านของชีวิต
           </p>
         </div>
