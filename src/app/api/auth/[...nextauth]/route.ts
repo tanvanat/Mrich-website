@@ -12,7 +12,7 @@ function adminSet() {
     raw
       .split(",")
       .map((s) => s.trim().toLowerCase())
-      .filter(Boolean)
+      .filter(Boolean),
   );
 }
 const ADMINS = adminSet();
@@ -34,8 +34,8 @@ export const authOptions: NextAuthOptions = {
   ],
 
   // ✅ ใช้ JWT strategy เพื่อให้ middleware ตรวจสอบ role ได้ง่าย
-  session: { 
-    strategy: "jwt" 
+  session: {
+    strategy: "jwt",
   },
 
   secret: process.env.NEXTAUTH_SECRET,
@@ -44,42 +44,44 @@ export const authOptions: NextAuthOptions = {
     // ตรวจสอบการ Sign In
     async signIn({ user }) {
       // ต้องมี email เท่านั้นถึงจะเข้าได้
-      return !!user.email; 
+      return !!user.email;
     },
 
     // JWT callback - ทำงานเมื่อมีการสร้างหรืออัปเดต JWT
     async jwt({ token, user }) {
-      // กรณี Login ครั้งแรก (user จะมีค่า)
       if (user?.email) {
         const email = user.email.toLowerCase();
-        // ตรวจสอบว่าเป็น Admin หรือไม่จาก ADMIN_EMAILS
         const role = ADMINS.has(email) ? "ADMIN" : "USER";
 
-        // อัปเดต role ในฐานข้อมูลให้ตรงกับ environment variables
-        await prisma.user.update({
-          where: { email: user.email },
-          data: { role: role as any },
-        });
+        try {
+          await prisma.user.upsert({
+            where: { email },
+            create: {
+              email,
+              name: user.name ?? null,
+              role: role as any,
+            },
+            update: {
+              role: role as any,
+            },
+          });
+        } catch (e) {
+          console.error("Role upsert failed:", e);
+        }
 
-        // เก็บข้อมูลลงใน token
-        token.email = user.email;
+        token.email = email;
         (token as any).role = role;
-      } 
-      // กรณี Refresh token (user ไม่มีค่า แต่ token มีค่า)
-      else if (token?.email) {
-        // ดึง role ล่าสุดจากฐานข้อมูล
+      } else if (token?.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email as string },
           select: { role: true },
         });
-        
-        // อัปเดต role ใน token ให้ตรงกับฐานข้อมูล
+
         (token as any).role = dbUser?.role ?? "USER";
       }
-      
+
       return token;
     },
-
     // Session callback - ทำงานทุกครั้งที่เรียก useSession() หรือ getSession()
     async session({ session, token }) {
       if (session.user) {
@@ -109,7 +111,7 @@ export const authOptions: NextAuthOptions = {
   },
 
   // เพิ่ม debug mode ใน development
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.NODE_ENV === "development",
 };
 
 const handler = NextAuth(authOptions);
