@@ -15,7 +15,6 @@ https://vercel.com/tanvanats-projects/multi-rich-academy/6eK3cEDpYTrLjUSSEGS8wvX
 https://console.neon.tech/app/projects/jolly-bread-00816733?database=neondb
 
 สิ่งที่ต้องเเก้ต่อ:
-1.ตอนนี้ใช้ได้เเค่ปุ่นเลือกgoogle account
 2.ปุ่มพิมgoogle accountใช้งานไม่ได้
-4.ให้ปุ่มsubmitข้อสอบอยู่ด้านล่าง
 5.มีช่องเติมตัวเลขให้adminให้คะเเนนได้เลย ที่หน้าadmin dashboardของเเต่ละข้อเเล้วรวมคะเเนนให้userคนนั้น
+6.ทำเป็นanimation casper the ghost บินมาทักทายตอนเวลาเริ่มจัด เเล้วพอเวลาใกล้หมดเเล้วก็บนออกมาเตือนชี้ไปที่เวลา
