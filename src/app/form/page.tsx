@@ -48,9 +48,7 @@ function patchQuestions(qs: any[]) {
   };
 
   const leadNo = (s: string) => {
-    const m = String(s ?? "")
-      .trim()
-      .match(/^(\d+)\s*[.)]/);
+    const m = String(s ?? "").trim().match(/^(\d+)\s*[.)]/);
     return m ? Number(m[1]) : null;
   };
 
@@ -79,7 +77,7 @@ export default function Page() {
 
   const questions = useMemo(() => patchQuestions(baseQuestions as any[]), []);
   const [answers, setAnswers] = useState<string[]>(() =>
-    Array(questions.length).fill(""),
+    Array(questions.length).fill("")
   );
 
   const [loading, setLoading] = useState(false);
@@ -99,11 +97,7 @@ export default function Page() {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const isAuthed = !!session?.user;
-  const displayName = (
-    session?.user?.name ??
-    session?.user?.email ??
-    ""
-  ).trim();
+  const displayName = (session?.user?.name ?? session?.user?.email ?? "").trim();
 
   // ---- toast helpers (แทน alert popup) ----
   const showToast = (type: ToastType, message: string, ms = 3500) => {
@@ -148,24 +142,19 @@ export default function Page() {
 
   // Casper เตือนเมื่อเหลือ 5 นาทีสุดท้าย
   useEffect(() => {
-    if (
-      secondsLeft <= 300 &&
-      secondsLeft > 290 &&
-      !isExpired &&
-      !showWarningCasper
-    ) {
+    if (secondsLeft <= 300 && secondsLeft > 290 && !isExpired && !showWarningCasper) {
       setShowWarningCasper(true);
 
+      // เล่นวิดีโอแบบ muted ได้ (autoplay policy อนุญาต)
       if (warningVideoRef.current) {
         warningVideoRef.current.currentTime = 0;
         warningVideoRef.current.play().catch(() => {});
       }
 
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      }
+      // เสียงจะ “เริ่มดัง” ก็ต่อเมื่อ user กดปุ่ม Click me 👻
+      // (อย่าพยายาม play ที่นี่ เพราะ browser จะบล็อก)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondsLeft, isExpired]);
 
   // เสียงนาฬิกา + emoji ⏳ เมื่อเหลือ 10 วินาที
@@ -173,7 +162,8 @@ export default function Page() {
     if (secondsLeft <= 10 && secondsLeft > 0 && !isExpired) {
       setShowTimerAlert(true);
 
-      if (audioRef.current) {
+      // ถ้า user ยังไม่ interact ให้ “ไม่พยายาม play” เพื่อเลี่ยงโดน block
+      if (userInteracted && audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(() => {});
       }
@@ -181,7 +171,7 @@ export default function Page() {
       setShowTimerAlert(false);
       if (audioRef.current) audioRef.current.pause();
     }
-  }, [secondsLeft, isExpired]);
+  }, [secondsLeft, isExpired, userInteracted]);
 
   const isLockedForInput = useMemo(() => {
     if (!state) return true;
@@ -219,28 +209,18 @@ export default function Page() {
 
       if (!res.ok) {
         console.error("Submit failed:", data);
-        showToast(
-          "error",
-          data?.error || "ส่งไม่สำเร็จ กรุณาลองใหม่หรือแจ้งผู้ดูแล",
-          4500,
-        );
+        showToast("error", data?.error || "ส่งไม่สำเร็จ กรุณาลองใหม่", 4500);
         return;
       }
 
       setSubmitOk({ id: data?.id ?? "-" });
       await loadState();
 
-      if (!opts?.silent) {
-        showToast("success", "ส่งคำตอบเรียบร้อยแล้ว ✅", 3000);
-      } else {
-        showToast("info", "หมดเวลาแล้ว ระบบส่งคำตอบให้อัตโนมัติ ✅", 3500);
-      }
+      if (!opts?.silent) showToast("success", "ส่งคำตอบเรียบร้อยแล้ว ✅", 3000);
+      else showToast("info", "หมดเวลาแล้ว ระบบส่งคำตอบให้อัตโนมัติ ✅", 3500);
 
       setTimeout(() => {
-        window.scrollTo({
-          top: document.body.scrollHeight,
-          behavior: "smooth",
-        });
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
       }, 100);
     } catch (err) {
       console.error("Submit error:", err);
@@ -250,16 +230,12 @@ export default function Page() {
     }
   }
 
-  // บังคับส่งอัตโนมัติเมื่อหมดเวลา (เรียกแบบ silent ไม่โชว์ toast ซ้ำ)
+  // บังคับส่งอัตโนมัติเมื่อหมดเวลา
   useEffect(() => {
-    if (
-      isExpired &&
-      !loading &&
-      submitOk === undefined &&
-      answers.some((v) => v.trim().length > 0)
-    ) {
+    if (isExpired && !loading && submitOk === undefined && answers.some((v) => v.trim().length > 0)) {
       submit({ silent: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpired, loading, submitOk, answers]);
 
   async function adminResetTimer() {
@@ -277,19 +253,34 @@ export default function Page() {
     return formatMMSS(secondsLeft);
   }, [isAuthed, state, secondsLeft]);
 
-  const handleWarningInteract = () => {
+  // ✅ กดปุ่ม Click me 👻 แล้ว “ต้องมีเสียงแน่นอน”
+  const handleWarningInteract = async () => {
     setUserInteracted(true);
 
+    // 1) เปิดเสียงวิดีโอ (casper)
     if (warningVideoRef.current) {
-      warningVideoRef.current.muted = false;
-      warningVideoRef.current.volume = 1.0;
-      warningVideoRef.current.play().catch(() => {});
+      try {
+        warningVideoRef.current.muted = false;
+        warningVideoRef.current.volume = 1.0;
+        warningVideoRef.current.currentTime = 0;
+        await warningVideoRef.current.play();
+      } catch (e) {
+        console.log("video play failed:", e);
+        showToast("error", "เบราว์เซอร์บล็อกเสียงวิดีโอ ลองกดปุ่มอีกครั้ง", 3500);
+      }
     }
 
+    // 2) เปิดเสียง alarm (mp3)
     if (audioRef.current) {
-      audioRef.current.muted = false;
-      audioRef.current.volume = 1.0;
-      audioRef.current.play().catch(() => {});
+      try {
+        audioRef.current.muted = false;
+        audioRef.current.volume = 1.0;
+        audioRef.current.currentTime = 0;
+        await audioRef.current.play();
+      } catch (e) {
+        console.log("audio play failed:", e);
+        showToast("error", "เบราว์เซอร์บล็อกเสียง alarm ลองกดปุ่มอีกครั้ง", 3500);
+      }
     }
   };
 
@@ -305,53 +296,25 @@ export default function Page() {
       {/* keyframes */}
       <style jsx global>{`
         @keyframes flowerFloat {
-          0%,
-          100% {
-            transform: translateY(0) rotate(0deg);
-          }
-          50% {
-            transform: translateY(-18px) rotate(4deg);
-          }
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-18px) rotate(4deg); }
         }
         @keyframes flowerGlow {
-          0%,
-          100% {
-            filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.35));
-          }
-          50% {
-            filter: drop-shadow(0 0 18px rgba(96, 165, 250, 0.75));
-          }
+          0%, 100% { filter: drop-shadow(0 0 8px rgba(96,165,250,0.35)); }
+          50% { filter: drop-shadow(0 0 18px rgba(96,165,250,0.75)); }
         }
         @keyframes casper-appear-fade {
-          0% {
-            transform: translateX(120%) translateY(0) scale(0.8);
-            opacity: 0;
-          }
-          15% {
-            transform: translateX(0) translateY(-20px) scale(1);
-            opacity: 1;
-          }
-          80% {
-            transform: translateX(0) translateY(-40px) scale(1);
-            opacity: 1;
-          }
-          100% {
-            transform: translateX(-150%) translateY(-60px) scale(0.7);
-            opacity: 0;
-          }
+          0% { transform: translateX(120%) translateY(0) scale(0.8); opacity: 0; }
+          15% { transform: translateX(0) translateY(-20px) scale(1); opacity: 1; }
+          80% { transform: translateX(0) translateY(-40px) scale(1); opacity: 1; }
+          100% { transform: translateX(-150%) translateY(-60px) scale(0.7); opacity: 0; }
         }
-        .animate-casper {
-          animation: casper-appear-fade 8s ease-in-out forwards;
-        }
+        .animate-casper { animation: casper-appear-fade 8s ease-in-out forwards; }
         @keyframes bounce {
-          0%,
-          100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
         }
+        .animate-bounce { animation: bounce 0.9s ease-in-out infinite; }
       `}</style>
 
       {/* Background Flowers */}
@@ -364,9 +327,7 @@ export default function Page() {
       {/* Toast แทน alert */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4">
-          <div
-            className={`max-w-[92vw] sm:max-w-[560px] rounded-2xl border backdrop-blur-xl shadow-2xl px-4 py-3 text-sm font-semibold ${toastBg}`}
-          >
+          <div className={`max-w-[92vw] sm:max-w-[560px] rounded-2xl border backdrop-blur-xl shadow-2xl px-4 py-3 text-sm font-semibold ${toastBg}`}>
             <div className="flex items-start gap-3">
               <div className="flex-1">{toast.message}</div>
               <button
@@ -387,10 +348,23 @@ export default function Page() {
 
       {/* Casper เตือน 5 นาทีสุดท้าย */}
       {showWarningCasper && (
+        // ✅ สำคัญ: ด้านนอก pointer-events-none แต่ “ด้านใน” ต้อง pointer-events-auto เพื่อให้ปุ่มกดได้จริง
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
           <div className="pointer-events-auto">
             <div className="w-36 h-36 animate-casper relative">
-              ...
+              <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-yellow-400/70 shadow-2xl shadow-yellow-500/70 bg-black">
+                <video
+                  ref={warningVideoRef}
+                  autoPlay
+                  playsInline
+                  muted={!userInteracted}
+                  src="/casper-clip2.mp4"
+                  preload="auto"
+                  className="absolute inset-0 w-[130%] h-[130%] object-cover object-[50%_100%] scale-100"
+                  onError={(e) => console.error("Warning video error:", e)}
+                />
+              </div>
+
               {!userInteracted && (
                 <button
                   type="button"
@@ -432,9 +406,7 @@ export default function Page() {
                     title={displayName}
                   >
                     {displayName}{" "}
-                    {state?.role ? (
-                      <span className="text-blue-200/70">({state.role})</span>
-                    ) : null}
+                    {state?.role ? <span className="text-blue-200/70">({state.role})</span> : null}
                   </span>
                   <button
                     onClick={() => signOut()}
@@ -456,16 +428,19 @@ export default function Page() {
 
           {/* Pills + Timer */}
           <div className="mt-4 flex gap-2 flex-wrap items-center">
+            <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
+              คะแนนเต็ม: {maxTotal}
+            </span>
+            <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
+              ตอบแล้ว: {answeredCount}/{questions.length}
+            </span>
+
             {state?.role === "USER" && (
               <span
                 className="px-3 py-1 rounded-full text-xs font-extrabold border"
                 style={{
-                  background: locked
-                    ? "rgba(34,197,94,0.16)"
-                    : "rgba(255,255,255,0.08)",
-                  borderColor: locked
-                    ? "rgba(34,197,94,0.35)"
-                    : "rgba(255,255,255,0.14)",
+                  background: locked ? "rgba(34,197,94,0.16)" : "rgba(255,255,255,0.08)",
+                  borderColor: locked ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.14)",
                 }}
               >
                 {locked ? "✅ ส่งแล้ว" : "📝 ยังไม่ส่ง"}
@@ -514,9 +489,7 @@ export default function Page() {
                   next[qIdx] = e.target.value;
                   setAnswers(next);
                 }}
-                placeholder={
-                  isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."
-                }
+                placeholder={isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."}
                 disabled={isLockedForInput}
                 className={`mt-3 w-full rounded-xl border px-4 py-3 text-sm sm:text-base leading-relaxed outline-none resize-y min-h-[140px]
                   ${
@@ -535,9 +508,7 @@ export default function Page() {
             <h2 className="text-2xl font-bold text-emerald-300 mb-2">
               ส่งคำตอบเรียบร้อยแล้ว!
             </h2>
-            <div className="text-sm text-emerald-100/80">
-              Response ID: {submitOk.id}
-            </div>
+            <div className="text-sm text-emerald-100/80">Response ID: {submitOk.id}</div>
           </section>
         )}
       </main>
@@ -548,18 +519,12 @@ export default function Page() {
           <div
             className="px-4 py-2 rounded-full text-sm font-extrabold border shadow-md relative"
             style={{
-              background: isExpired
-                ? "rgba(239,68,68,0.22)"
-                : "rgba(59,130,246,0.22)",
-              borderColor: isExpired
-                ? "rgba(239,68,68,0.5)"
-                : "rgba(59,130,246,0.5)",
+              background: isExpired ? "rgba(239,68,68,0.22)" : "rgba(59,130,246,0.22)",
+              borderColor: isExpired ? "rgba(239,68,68,0.5)" : "rgba(59,130,246,0.5)",
             }}
           >
             ⏳ {timerLabel}
-            {isExpired && (
-              <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>
-            )}
+            {isExpired && <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>}
           </div>
 
           <div className="flex items-center gap-4">
@@ -575,15 +540,11 @@ export default function Page() {
                   !canSubmit || loading || !isAuthed
                     ? "bg-slate-700/40 text-slate-400 cursor-not-allowed border border-slate-600/40"
                     : isExpired
-                      ? "bg-red-600 hover:bg-red-500 text-white"
-                      : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
+                    ? "bg-red-600 hover:bg-red-500 text-white"
+                    : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
                 }`}
             >
-              {loading
-                ? "กำลังส่ง..."
-                : isExpired
-                  ? "ส่งคำตอบที่เหลือ (หมดเวลา)"
-                  : "ส่งคำตอบ"}
+              {loading ? "กำลังส่ง..." : isExpired ? "ส่งคำตอบที่เหลือ (หมดเวลา)" : "ส่งคำตอบ"}
             </button>
           </div>
         </div>
