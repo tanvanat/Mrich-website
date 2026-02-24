@@ -35,22 +35,29 @@ export default function SignInPage() {
     try {
       console.log("เริ่ม signIn ด้วย email:", trimmedEmail);
       const res = await signIn("email", {
-        redirect: false,
+        redirect: false, // สำคัญ! ป้องกัน redirect อัตโนมัติ + error alert
         email: trimmedEmail,
         callbackUrl: "/home",
       });
 
       if (res?.error) {
         console.error("Email sign-in error:", res.error);
-        setError("ไม่สามารถส่งลิงก์ยืนยันได้ กรุณาลองใหม่หรือตรวจสอบอีเมล");
-      } else if (res?.url) {
-        router.push(res.url);
+        if (res.error === "EmailSignin") {
+          setError("ไม่สามารถส่งลิงก์ยืนยันได้ กรุณาตรวจสอบอีเมลหรือลองใหม่");
+        } else if (res.error.includes("access_denied")) {
+          setError("การยืนยันถูกยกเลิก กรุณาลองใหม่");
+        } else {
+          setError(res.error || "เกิดข้อผิดพลาดในการส่งลิงก์ยืนยัน");
+        }
+      } else if (res?.ok) {
+        // สำเร็จ → redirect เอง
+        router.push("/home");
       } else {
         setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ กรุณาลองใหม่");
       }
     } catch (err) {
       console.error("Unexpected error during email sign-in:", err);
-      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาตรวจสอบอินเทอร์เน็ต");
+      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
     } finally {
       setLoadingEmail(false);
     }
@@ -63,7 +70,7 @@ export default function SignInPage() {
     try {
       console.log("เริ่ม signIn ด้วย Google...");
       const res = await signIn("google", {
-        redirect: false,
+        redirect: false, // สำคัญ! ป้องกัน redirect อัตโนมัติ + error alert
         callbackUrl: "/home",
       });
 
@@ -71,17 +78,20 @@ export default function SignInPage() {
         console.error("Google sign-in error:", res.error);
         if (res.error.includes("access_denied")) {
           setError("คุณยกเลิกการล็อกอิน Google หรือไม่ได้อนุญาต");
+        } else if (res.error.includes("OAuthSignin")) {
+          setError("ไม่สามารถเชื่อมต่อกับ Google ได้ กรุณาลองใหม่หรือตรวจสอบบัญชี");
         } else {
           setError("ไม่สามารถล็อกอินด้วย Google ได้ กรุณาลองใหม่");
         }
-      } else if (res?.url) {
-        router.push(res.url);
+      } else if (res?.ok) {
+        // สำเร็จ → redirect เอง
+        router.push("/home");
       } else {
         setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
       }
     } catch (err) {
       console.error("Unexpected error during Google sign-in:", err);
-      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ Google");
+      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ Google กรุณาตรวจสอบอินเทอร์เน็ต");
     } finally {
       setLoadingGoogle(false);
     }
@@ -151,9 +161,9 @@ export default function SignInPage() {
           </Link>
         </p>
 
-        {/* Error message */}
+        {/* Error message (แทน alert) */}
         {error && (
-          <div className="mt-4 p-4 bg-red-500/20 border border-red-400/40 rounded-xl text-red-200 text-sm">
+          <div className="mt-4 p-4 bg-red-500/20 border border-red-400/40 rounded-xl text-red-200 text-sm text-center">
             {error}
           </div>
         )}

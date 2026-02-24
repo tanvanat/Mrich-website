@@ -58,3 +58,5 @@ npx prisma generate
 ## 6. env
 ## 7. Google OAuth Setup
 
+## migrate db to production (Neon)
+npx prisma migrate deploy

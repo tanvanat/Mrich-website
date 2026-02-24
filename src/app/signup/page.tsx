@@ -20,7 +20,7 @@ export default function SignupPage() {
     }
   }, [status, router]);
 
-  const handleEmailSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleEmailSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
 
@@ -35,53 +35,63 @@ export default function SignupPage() {
     try {
       console.log("เริ่ม signIn ด้วย email (signup):", trimmedEmail);
       const res = await signIn("email", {
-        redirect: false,
+        redirect: false, // สำคัญ! เพื่อควบคุม redirection และ error เอง
         email: trimmedEmail,
         callbackUrl: "/home",
       });
 
       if (res?.error) {
-        console.error("Email sign-in error:", res.error);
-        setError("ไม่สามารถส่งลิงก์ยืนยันได้ กรุณาลองใหม่หรือตรวจสอบอีเมล");
-      } else if (res?.url) {
-        router.push(res.url);
+        console.error("Email signup error:", res.error);
+        if (res.error === "EmailSignin") {
+          setError("ไม่สามารถส่งลิงก์ยืนยันได้ กรุณาตรวจสอบอีเมลหรือลองใหม่");
+        } else if (res.error.includes("access_denied")) {
+          setError("การยืนยันถูกยกเลิก กรุณาลองใหม่");
+        } else {
+          setError(res.error || "เกิดข้อผิดพลาดในการส่งลิงก์ยืนยัน");
+        }
+      } else if (res?.ok) {
+        // สำเร็จ → redirect ไปหน้า home
+        router.push("/home");
       } else {
         setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ กรุณาลองใหม่");
       }
     } catch (err) {
-      console.error("Unexpected error during email sign-in:", err);
-      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาตรวจสอบอินเทอร์เน็ต");
+      console.error("Unexpected error during email signup:", err);
+      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");
     } finally {
       setLoadingEmail(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignup = async () => {
     setLoadingGoogle(true);
     setError(null);
 
     try {
       console.log("เริ่ม signIn ด้วย Google (signup)...");
       const res = await signIn("google", {
-        redirect: false,
+        redirect: false, // สำคัญ! เพื่อควบคุม redirection และ error เอง
         callbackUrl: "/home",
       });
 
       if (res?.error) {
-        console.error("Google sign-in error:", res.error);
+        console.error("Google signup error:", res.error);
         if (res.error.includes("access_denied")) {
-          setError("คุณยกเลิกการล็อกอิน Google หรือไม่ได้อนุญาต");
+          setError("คุณยกเลิกการสมัครด้วย Google หรือไม่ได้อนุญาต");
+        } else if (res.error.includes("OAuthSignin")) {
+          setError("ไม่สามารถเชื่อมต่อกับ Google ได้ กรุณาลองใหม่หรือตรวจสอบบัญชี");
         } else {
-          setError("ไม่สามารถล็อกอินด้วย Google ได้ กรุณาลองใหม่");
+          setError("ไม่สามารถสมัครด้วย Google ได้ กรุณาลองใหม่");
         }
-      } else if (res?.url) {
-        router.push(res.url);
+      } else if (res?.ok) {
+        // สำเร็จ → redirect ไปหน้า home
+        router.push("/home");
       } else {
         setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
       }
     } catch (err) {
-      console.error("Unexpected error during Google sign-in:", err);
-      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ Google");
+      console.error("Unexpected error during Google signup:", err);
+      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ Google กรุณาตรวจสอบอินเทอร์เน็ต");
     } finally {
       setLoadingGoogle(false);
     }
@@ -140,15 +150,15 @@ export default function SignupPage() {
           </Link>
         </p>
 
-        {/* Error message */}
+        {/* Error message (แทน alert) */}
         {error && (
-          <div className="mt-4 p-4 bg-red-500/20 border border-red-400/40 rounded-xl text-red-200 text-sm">
+          <div className="mt-4 p-4 bg-red-500/20 border border-red-400/40 rounded-xl text-red-200 text-sm text-center">
             {error}
           </div>
         )}
 
         {/* Email Form */}
-        <form onSubmit={handleEmailSignIn} className="mt-6">
+        <form onSubmit={handleEmailSignup} className="mt-6">
           <label htmlFor="email" className="block text-sm text-blue-100 mb-2">
             อีเมล
           </label>
@@ -191,7 +201,7 @@ export default function SignupPage() {
         {/* Google Button */}
         <button
           type="button"
-          onClick={handleGoogleSignIn}
+          onClick={handleGoogleSignup}
           disabled={loadingGoogle}
           className={`w-full h-12 rounded-full border border-blue-300/30 transition-all duration-300 flex items-center justify-center gap-3
             ${loadingGoogle 
