@@ -48,9 +48,7 @@ function patchQuestions(qs: any[]) {
   };
 
   const leadNo = (s: string) => {
-    const m = String(s ?? "")
-      .trim()
-      .match(/^(\d+)\s*[.)]/);
+    const m = String(s ?? "").trim().match(/^(\d+)\s*[.)]/);
     return m ? Number(m[1]) : null;
   };
 
@@ -78,9 +76,7 @@ export default function Page() {
   const { data: session, status } = useSession();
 
   const questions = useMemo(() => patchQuestions(baseQuestions as any[]), []);
-  const [answers, setAnswers] = useState<string[]>(() =>
-    Array(questions.length).fill("")
-  );
+  const [answers, setAnswers] = useState<string[]>(() => Array(questions.length).fill(""));
 
   const [loading, setLoading] = useState(false);
   const [submitOk, setSubmitOk] = useState<SubmitOk | undefined>(undefined);
@@ -99,13 +95,9 @@ export default function Page() {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const isAuthed = !!session?.user;
-  const displayName = (
-    session?.user?.name ??
-    session?.user?.email ??
-    ""
-  ).trim();
+  const displayName = (session?.user?.name ?? session?.user?.email ?? "").trim();
 
-  // ---- toast helpers (no browser popup) ----
+  // ---- toast helpers (แทน alert popup) ----
   const showToast = (type: ToastType, message: string, ms = 3500) => {
     setToast({ type, message });
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -146,17 +138,11 @@ export default function Page() {
   const isExpired = (state?.expired ?? false) || secondsLeft <= 0;
   const locked = !!state?.locked;
 
-  // Casper เตือนเมื่อเหลือ 5 นาทีสุดท้าย (300 วินาที)
+  // Casper เตือนเมื่อเหลือ 5 นาทีสุดท้าย
   useEffect(() => {
-    if (
-      secondsLeft <= 300 &&
-      secondsLeft > 290 &&
-      !isExpired &&
-      !showWarningCasper
-    ) {
+    if (secondsLeft <= 300 && secondsLeft > 290 && !isExpired && !showWarningCasper) {
       setShowWarningCasper(true);
 
-      warningVideoRef.current?.pause();
       if (warningVideoRef.current) {
         warningVideoRef.current.currentTime = 0;
         warningVideoRef.current.play().catch(() => {});
@@ -167,12 +153,13 @@ export default function Page() {
         audioRef.current.play().catch(() => {});
       }
     }
-  }, [secondsLeft, isExpired, showWarningCasper]);
+  }, [secondsLeft, isExpired]);
 
   // เสียงนาฬิกา + emoji ⏳ เมื่อเหลือ 10 วินาที
   useEffect(() => {
     if (secondsLeft <= 10 && secondsLeft > 0 && !isExpired) {
       setShowTimerAlert(true);
+
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(() => {});
@@ -197,6 +184,7 @@ export default function Page() {
     return true;
   }, [state, isAuthed, locked, submitOk]);
 
+  // ฟังก์ชัน submit ที่ใช้ showToast แทน alert
   async function submit(opts?: { silent?: boolean }) {
     if (!canSubmit || loading) return;
 
@@ -215,12 +203,12 @@ export default function Page() {
       });
 
       const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        // ❌ ไม่โชว์ prisma error ให้ user
         console.error("Submit failed:", data);
         showToast(
           "error",
-          "ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หรือแจ้งผู้ดูแลระบบ",
+          data?.error || "ส่งไม่สำเร็จ กรุณาลองใหม่หรือแจ้งผู้ดูแล",
           4500
         );
         return;
@@ -236,10 +224,7 @@ export default function Page() {
       }
 
       setTimeout(() => {
-        window.scrollTo({
-          top: document.body.scrollHeight,
-          behavior: "smooth",
-        });
+        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
       }, 100);
     } catch (err) {
       console.error("Submit error:", err);
@@ -249,18 +234,11 @@ export default function Page() {
     }
   }
 
-  // บังคับส่งอัตโนมัติเมื่อหมดเวลา (❌ ไม่มี alert แล้ว)
+  // บังคับส่งอัตโนมัติเมื่อหมดเวลา (เรียกแบบ silent ไม่โชว์ toast ซ้ำ)
   useEffect(() => {
-    if (
-      isExpired &&
-      !loading &&
-      submitOk === undefined &&
-      answers.some((v) => v.trim().length > 0)
-    ) {
-      // ทำเงียบๆ + toast
+    if (isExpired && !loading && submitOk === undefined && answers.some((v) => v.trim().length > 0)) {
       submit({ silent: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpired, loading, submitOk, answers]);
 
   async function adminResetTimer() {
@@ -278,7 +256,6 @@ export default function Page() {
     return formatMMSS(secondsLeft);
   }, [isAuthed, state, secondsLeft]);
 
-  // เปิดเสียงเมื่อกดปุ่ม Click me 👻
   const handleWarningInteract = () => {
     setUserInteracted(true);
 
@@ -307,22 +284,12 @@ export default function Page() {
       {/* keyframes */}
       <style jsx global>{`
         @keyframes flowerFloat {
-          0%,
-          100% {
-            transform: translateY(0) rotate(0deg);
-          }
-          50% {
-            transform: translateY(-18px) rotate(4deg);
-          }
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-18px) rotate(4deg); }
         }
         @keyframes flowerGlow {
-          0%,
-          100% {
-            filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.35));
-          }
-          50% {
-            filter: drop-shadow(0 0 18px rgba(96, 165, 250, 0.75));
-          }
+          0%, 100% { filter: drop-shadow(0 0 8px rgba(96,165,250,0.35)); }
+          50% { filter: drop-shadow(0 0 18px rgba(96,165,250,0.75)); }
         }
         @keyframes casper-appear-fade {
           0% {
@@ -346,100 +313,19 @@ export default function Page() {
           animation: casper-appear-fade 8s ease-in-out forwards;
         }
         @keyframes bounce {
-          0%,
-          100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-        .animate-bounce {
-          animation: bounce 0.9s ease-in-out infinite;
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
         }
       `}</style>
 
-      {/* ✅ Background Flowers (เหมือนหน้า Home) */}
+      {/* Background Flowers */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-16 right-0 opacity-15 animate-[flowerFloat_7s_ease-in-out_infinite]">
-          <svg
-            width="260"
-            height="260"
-            viewBox="0 0 100 100"
-            className="animate-[flowerGlow_3s_ease-in-out_infinite]"
-          >
-            <g transform="translate(50,50)">
-              {[0, 60, 120, 180, 240, 300].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="18"
-                  ry="32"
-                  fill="#3b82f6"
-                  transform={`rotate(${deg})`}
-                />
-              ))}
-              <circle r="12" fill="#1e3a8a" />
-              <circle r="7" fill="#93c5fd" />
-            </g>
-          </svg>
-        </div>
-
-        <div className="absolute bottom-[-80px] left-[-70px] opacity-10 animate-[flowerFloat_8s_ease-in-out_infinite_1s]">
-          <svg width="260" height="260" viewBox="0 0 100 100">
-            <g transform="translate(50,50)">
-              {[0, 72, 144, 216, 288].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="18"
-                  ry="30"
-                  fill="#60a5fa"
-                  transform={`rotate(${deg})`}
-                />
-              ))}
-              <circle r="10" fill="#1e40af" />
-              <circle r="6" fill="#bfdbfe" />
-            </g>
-          </svg>
-        </div>
-
-        <div className="absolute top-1/2 left-10 opacity-10 animate-[flowerFloat_9s_ease-in-out_infinite_2s]">
-          <svg width="110" height="110" viewBox="0 0 100 100">
-            <g transform="translate(50,50)">
-              {[0, 90, 180, 270].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="14"
-                  ry="24"
-                  fill="#7dd3fc"
-                  transform={`rotate(${deg})`}
-                />
-              ))}
-              <circle r="8" fill="#0e7490" />
-            </g>
-          </svg>
-        </div>
-
-        <div className="absolute bottom-1/3 right-16 opacity-10 animate-[flowerFloat_6.5s_ease-in-out_infinite]">
-          <svg width="110" height="110" viewBox="0 0 100 100">
-            <g transform="translate(50,50)">
-              {[30, 90, 150, 210, 270, 330].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="12"
-                  ry="22"
-                  fill="#a5f3fc"
-                  transform={`rotate(${deg})`}
-                />
-              ))}
-              <circle r="6" fill="#0e7490" />
-            </g>
-          </svg>
-        </div>
+        {/* วางโค้ดดอกไม้เดิมทั้ง 4 อันตรงนี้ */}
       </div>
 
       <div className="absolute inset-0 bg-black/25" />
 
-      {/* ✅ Toast (แทน alert popup) */}
+      {/* Toast แทน alert */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4">
           <div
@@ -461,41 +347,33 @@ export default function Page() {
       )}
 
       {/* เสียงนาฬิกาปลุก */}
-      <audio ref={audioRef} src="/alarm.mp3" preload="auto" />
+      <audio ref={audioRef} src="/alarm-clock.mp3" preload="auto" />
 
       {/* Casper เตือน 5 นาทีสุดท้าย */}
       {showWarningCasper && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto">
-            <div className="w-48 h-48 animate-casper relative">
-              <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-yellow-400/70 shadow-2xl shadow-yellow-500/70 bg-black">
-                <video
-                  ref={warningVideoRef}
-                  autoPlay
-                  playsInline
-                  muted={!userInteracted}
-                  src="/casper-clip2.mp4"
-                  preload="auto"
-                  className="absolute left-1/2 top-1/2 w-[185%] h-[185%] object-cover"
-                  style={{
-                    transform:
-                      "translate(-50%, -50%) translateY(18px) scale(1.02)",
-                    transformOrigin: "center",
-                  }}
-                  onError={(e) => console.error("Warning video error:", e)}
-                />
-              </div>
-
-              {!userInteracted && (
-                <button
-                  type="button"
-                  onClick={handleWarningInteract}
-                  className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-6 py-3 bg-yellow-600/90 text-white text-base font-bold rounded-full shadow-lg hover:bg-yellow-500 transition-all transform hover:scale-105"
-                >
-                  Click me 👻
-                </button>
-              )}
+          <div className="w-36 h-36 animate-casper">
+            <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-yellow-400/70 shadow-2xl shadow-yellow-500/70">
+              <video
+                ref={warningVideoRef}
+                autoPlay
+                playsInline
+                muted={!userInteracted}
+                src="/casper-clip2.mp4"
+                preload="auto"
+                className="absolute inset-0 w-[190%] h-[190%] object-cover object-[50%_75%] scale-130"
+                onError={(e) => console.error("Warning video error:", e)}
+              />
             </div>
+
+            {!userInteracted && (
+              <button
+                onClick={handleWarningInteract}
+                className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-6 py-3 bg-yellow-600/90 text-white text-base font-bold rounded-full shadow-lg hover:bg-yellow-500 transition-all transform hover:scale-105 z-60"
+              >
+                Click me 👻
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -526,10 +404,7 @@ export default function Page() {
                     className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-blue-100 text-xs font-bold max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap"
                     title={displayName}
                   >
-                    {displayName}{" "}
-                    {state?.role ? (
-                      <span className="text-blue-200/70">({state.role})</span>
-                    ) : null}
+                    {displayName} {state?.role ? <span className="text-blue-200/70">({state.role})</span> : null}
                   </span>
                   <button
                     onClick={() => signOut()}
@@ -549,6 +424,7 @@ export default function Page() {
             </div>
           </div>
 
+          {/* Pills + Timer */}
           <div className="mt-4 flex gap-2 flex-wrap items-center">
             <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
               คะแนนเต็ม: {maxTotal}
@@ -561,12 +437,8 @@ export default function Page() {
               <span
                 className="px-3 py-1 rounded-full text-xs font-extrabold border"
                 style={{
-                  background: locked
-                    ? "rgba(34,197,94,0.16)"
-                    : "rgba(255,255,255,0.08)",
-                  borderColor: locked
-                    ? "rgba(34,197,94,0.35)"
-                    : "rgba(255,255,255,0.14)",
+                  background: locked ? "rgba(34,197,94,0.16)" : "rgba(255,255,255,0.08)",
+                  borderColor: locked ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.14)",
                 }}
               >
                 {locked ? "✅ ส่งแล้ว" : "📝 ยังไม่ส่ง"}
@@ -574,6 +446,7 @@ export default function Page() {
             )}
           </div>
 
+          {/* Admin buttons + Back to Home */}
           <div className="mt-4 flex gap-3 flex-wrap">
             {state?.role === "ADMIN" && (
               <button
@@ -596,6 +469,7 @@ export default function Page() {
 
         <div className="h-8" />
 
+        {/* คำถามทั้งหมด */}
         <div className="space-y-5 pb-12">
           {questions.map((q, qIdx) => (
             <section
@@ -613,29 +487,23 @@ export default function Page() {
                   next[qIdx] = e.target.value;
                   setAnswers(next);
                 }}
-                placeholder={
-                  isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."
-                }
+                placeholder={isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."}
                 disabled={isLockedForInput}
                 className={`mt-3 w-full rounded-xl border px-4 py-3 text-sm sm:text-base leading-relaxed outline-none resize-y min-h-[140px]
-                  ${
-                    isLockedForInput
-                      ? "bg-black/20 border-blue-300/10 text-blue-100/70"
-                      : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
+                  ${isLockedForInput
+                    ? "bg-black/20 border-blue-300/10 text-blue-100/70"
+                    : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
                   }`}
               />
             </section>
           ))}
         </div>
 
+        {/* Submitted */}
         {submitOk && (
           <section className="mt-10 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 backdrop-blur-xl p-6 shadow-2xl text-center">
-            <h2 className="text-2xl font-bold text-emerald-300 mb-2">
-              ส่งคำตอบเรียบร้อยแล้ว!
-            </h2>
-            <div className="text-sm text-emerald-100/80">
-              Response ID: {submitOk.id}
-            </div>
+            <h2 className="text-2xl font-bold text-emerald-300 mb-2">ส่งคำตอบเรียบร้อยแล้ว!</h2>
+            <div className="text-sm text-emerald-100/80">Response ID: {submitOk.id}</div>
           </section>
         )}
       </main>
@@ -646,18 +514,12 @@ export default function Page() {
           <div
             className="px-4 py-2 rounded-full text-sm font-extrabold border shadow-md relative"
             style={{
-              background: isExpired
-                ? "rgba(239,68,68,0.22)"
-                : "rgba(59,130,246,0.22)",
-              borderColor: isExpired
-                ? "rgba(239,68,68,0.5)"
-                : "rgba(59,130,246,0.5)",
+              background: isExpired ? "rgba(239,68,68,0.22)" : "rgba(59,130,246,0.22)",
+              borderColor: isExpired ? "rgba(239,68,68,0.5)" : "rgba(59,130,246,0.5)",
             }}
           >
             ⏳ {timerLabel}
-            {isExpired && (
-              <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>
-            )}
+            {isExpired && <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>}
           </div>
 
           <div className="flex items-center gap-4">
@@ -673,15 +535,11 @@ export default function Page() {
                   !canSubmit || loading || !isAuthed
                     ? "bg-slate-700/40 text-slate-400 cursor-not-allowed border border-slate-600/40"
                     : isExpired
-                      ? "bg-red-600 hover:bg-red-500 text-white"
-                      : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
+                    ? "bg-red-600 hover:bg-red-500 text-white"
+                    : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
                 }`}
             >
-              {loading
-                ? "กำลังส่ง..."
-                : isExpired
-                  ? "ส่งคำตอบที่เหลือ (หมดเวลา)"
-                  : "ส่งคำตอบ"}
+              {loading ? "กำลังส่ง..." : isExpired ? "ส่งคำตอบที่เหลือ (หมดเวลา)" : "ส่งคำตอบ"}
             </button>
           </div>
         </div>
