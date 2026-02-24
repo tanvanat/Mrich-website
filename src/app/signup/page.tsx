@@ -157,47 +157,6 @@ export default function SignupPage() {
           </div>
         )}
 
-        {/* Email Form */}
-        <form onSubmit={handleEmailSignup} className="mt-6">
-          <label htmlFor="email" className="block text-sm text-blue-100 mb-2">
-            อีเมล
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="กรอกอีเมลของคุณ"
-            required
-            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-blue-300/20 text-white placeholder-blue-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition"
-          />
-
-          <div className="text-left mt-3">
-            <Link href="/forgot-email" className="text-blue-200/80 text-sm hover:text-white underline underline-offset-4">
-              ลืมอีเมล?
-            </Link>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loadingEmail}
-            className={`w-full mt-6 h-12 rounded-full transition-all duration-300 font-semibold shadow-lg
-              ${loadingEmail 
-                ? "bg-blue-700/50 cursor-wait" 
-                : "bg-blue-600 hover:bg-blue-500 hover:shadow-xl hover:scale-[1.02]"}`}
-          >
-            {loadingEmail ? "กำลังส่งลิงก์..." : "สมัครด้วยอีเมล"}
-          </button>
-        </form>
-
-        {/* Divider */}
-        <div className="relative my-8 flex items-center">
-          <div className="flex-grow border-t border-blue-300/20" />
-          <span className="mx-4 text-sm text-blue-200/70">หรือ</span>
-          <div className="flex-grow border-t border-blue-300/20" />
-        </div>
-
         {/* Google Button */}
         <button
           type="button"
