@@ -361,7 +361,7 @@ export default function Page() {
                 muted={!userInteracted}
                 src="/casper-clip2.mp4"
                 preload="auto"
-                className="absolute inset-0 w-[190%] h-[190%] object-cover object-[50%_75%] scale-130"
+                className="absolute inset-0 w-[130%] h-[130%] object-cover object-[50%_100%] scale-130"
                 onError={(e) => console.error("Warning video error:", e)}
               />
             </div>
