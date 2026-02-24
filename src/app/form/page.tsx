@@ -48,7 +48,9 @@ function patchQuestions(qs: any[]) {
   };
 
   const leadNo = (s: string) => {
-    const m = String(s ?? "").trim().match(/^(\d+)\s*[.)]/);
+    const m = String(s ?? "")
+      .trim()
+      .match(/^(\d+)\s*[.)]/);
     return m ? Number(m[1]) : null;
   };
 
@@ -76,7 +78,9 @@ export default function Page() {
   const { data: session, status } = useSession();
 
   const questions = useMemo(() => patchQuestions(baseQuestions as any[]), []);
-  const [answers, setAnswers] = useState<string[]>(() => Array(questions.length).fill(""));
+  const [answers, setAnswers] = useState<string[]>(() =>
+    Array(questions.length).fill(""),
+  );
 
   const [loading, setLoading] = useState(false);
   const [submitOk, setSubmitOk] = useState<SubmitOk | undefined>(undefined);
@@ -95,7 +99,11 @@ export default function Page() {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const isAuthed = !!session?.user;
-  const displayName = (session?.user?.name ?? session?.user?.email ?? "").trim();
+  const displayName = (
+    session?.user?.name ??
+    session?.user?.email ??
+    ""
+  ).trim();
 
   // ---- toast helpers (แทน alert popup) ----
   const showToast = (type: ToastType, message: string, ms = 3500) => {
@@ -140,7 +148,12 @@ export default function Page() {
 
   // Casper เตือนเมื่อเหลือ 5 นาทีสุดท้าย
   useEffect(() => {
-    if (secondsLeft <= 300 && secondsLeft > 290 && !isExpired && !showWarningCasper) {
+    if (
+      secondsLeft <= 300 &&
+      secondsLeft > 290 &&
+      !isExpired &&
+      !showWarningCasper
+    ) {
       setShowWarningCasper(true);
 
       if (warningVideoRef.current) {
@@ -209,7 +222,7 @@ export default function Page() {
         showToast(
           "error",
           data?.error || "ส่งไม่สำเร็จ กรุณาลองใหม่หรือแจ้งผู้ดูแล",
-          4500
+          4500,
         );
         return;
       }
@@ -224,7 +237,10 @@ export default function Page() {
       }
 
       setTimeout(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: "smooth",
+        });
       }, 100);
     } catch (err) {
       console.error("Submit error:", err);
@@ -236,7 +252,12 @@ export default function Page() {
 
   // บังคับส่งอัตโนมัติเมื่อหมดเวลา (เรียกแบบ silent ไม่โชว์ toast ซ้ำ)
   useEffect(() => {
-    if (isExpired && !loading && submitOk === undefined && answers.some((v) => v.trim().length > 0)) {
+    if (
+      isExpired &&
+      !loading &&
+      submitOk === undefined &&
+      answers.some((v) => v.trim().length > 0)
+    ) {
       submit({ silent: true });
     }
   }, [isExpired, loading, submitOk, answers]);
@@ -284,12 +305,22 @@ export default function Page() {
       {/* keyframes */}
       <style jsx global>{`
         @keyframes flowerFloat {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-18px) rotate(4deg); }
+          0%,
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-18px) rotate(4deg);
+          }
         }
         @keyframes flowerGlow {
-          0%, 100% { filter: drop-shadow(0 0 8px rgba(96,165,250,0.35)); }
-          50% { filter: drop-shadow(0 0 18px rgba(96,165,250,0.75)); }
+          0%,
+          100% {
+            filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.35));
+          }
+          50% {
+            filter: drop-shadow(0 0 18px rgba(96, 165, 250, 0.75));
+          }
         }
         @keyframes casper-appear-fade {
           0% {
@@ -313,8 +344,13 @@ export default function Page() {
           animation: casper-appear-fade 8s ease-in-out forwards;
         }
         @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
         }
       `}</style>
 
@@ -347,33 +383,24 @@ export default function Page() {
       )}
 
       {/* เสียงนาฬิกาปลุก */}
-      <audio ref={audioRef} src="/alarm-clock.mp3" preload="auto" />
+      <audio ref={audioRef} src="/alarm.mp3" preload="auto" />
 
       {/* Casper เตือน 5 นาทีสุดท้าย */}
       {showWarningCasper && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-          <div className="w-36 h-36 animate-casper">
-            <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-yellow-400/70 shadow-2xl shadow-yellow-500/70">
-              <video
-                ref={warningVideoRef}
-                autoPlay
-                playsInline
-                muted={!userInteracted}
-                src="/casper-clip2.mp4"
-                preload="auto"
-                className="absolute inset-0 w-[130%] h-[130%] object-cover object-[50%_100%] scale-130"
-                onError={(e) => console.error("Warning video error:", e)}
-              />
+          <div className="pointer-events-auto">
+            <div className="w-36 h-36 animate-casper relative">
+              ...
+              {!userInteracted && (
+                <button
+                  type="button"
+                  onClick={handleWarningInteract}
+                  className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-6 py-3 bg-yellow-600/90 text-white text-base font-bold rounded-full shadow-lg hover:bg-yellow-500 transition-all transform hover:scale-105"
+                >
+                  Click me 👻
+                </button>
+              )}
             </div>
-
-            {!userInteracted && (
-              <button
-                onClick={handleWarningInteract}
-                className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-6 py-3 bg-yellow-600/90 text-white text-base font-bold rounded-full shadow-lg hover:bg-yellow-500 transition-all transform hover:scale-105 z-60"
-              >
-                Click me 👻
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -404,7 +431,10 @@ export default function Page() {
                     className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-blue-100 text-xs font-bold max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap"
                     title={displayName}
                   >
-                    {displayName} {state?.role ? <span className="text-blue-200/70">({state.role})</span> : null}
+                    {displayName}{" "}
+                    {state?.role ? (
+                      <span className="text-blue-200/70">({state.role})</span>
+                    ) : null}
                   </span>
                   <button
                     onClick={() => signOut()}
@@ -430,8 +460,12 @@ export default function Page() {
               <span
                 className="px-3 py-1 rounded-full text-xs font-extrabold border"
                 style={{
-                  background: locked ? "rgba(34,197,94,0.16)" : "rgba(255,255,255,0.08)",
-                  borderColor: locked ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.14)",
+                  background: locked
+                    ? "rgba(34,197,94,0.16)"
+                    : "rgba(255,255,255,0.08)",
+                  borderColor: locked
+                    ? "rgba(34,197,94,0.35)"
+                    : "rgba(255,255,255,0.14)",
                 }}
               >
                 {locked ? "✅ ส่งแล้ว" : "📝 ยังไม่ส่ง"}
@@ -480,12 +514,15 @@ export default function Page() {
                   next[qIdx] = e.target.value;
                   setAnswers(next);
                 }}
-                placeholder={isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."}
+                placeholder={
+                  isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."
+                }
                 disabled={isLockedForInput}
                 className={`mt-3 w-full rounded-xl border px-4 py-3 text-sm sm:text-base leading-relaxed outline-none resize-y min-h-[140px]
-                  ${isLockedForInput
-                    ? "bg-black/20 border-blue-300/10 text-blue-100/70"
-                    : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
+                  ${
+                    isLockedForInput
+                      ? "bg-black/20 border-blue-300/10 text-blue-100/70"
+                      : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
                   }`}
               />
             </section>
@@ -495,8 +532,12 @@ export default function Page() {
         {/* Submitted */}
         {submitOk && (
           <section className="mt-10 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 backdrop-blur-xl p-6 shadow-2xl text-center">
-            <h2 className="text-2xl font-bold text-emerald-300 mb-2">ส่งคำตอบเรียบร้อยแล้ว!</h2>
-            <div className="text-sm text-emerald-100/80">Response ID: {submitOk.id}</div>
+            <h2 className="text-2xl font-bold text-emerald-300 mb-2">
+              ส่งคำตอบเรียบร้อยแล้ว!
+            </h2>
+            <div className="text-sm text-emerald-100/80">
+              Response ID: {submitOk.id}
+            </div>
           </section>
         )}
       </main>
@@ -507,12 +548,18 @@ export default function Page() {
           <div
             className="px-4 py-2 rounded-full text-sm font-extrabold border shadow-md relative"
             style={{
-              background: isExpired ? "rgba(239,68,68,0.22)" : "rgba(59,130,246,0.22)",
-              borderColor: isExpired ? "rgba(239,68,68,0.5)" : "rgba(59,130,246,0.5)",
+              background: isExpired
+                ? "rgba(239,68,68,0.22)"
+                : "rgba(59,130,246,0.22)",
+              borderColor: isExpired
+                ? "rgba(239,68,68,0.5)"
+                : "rgba(59,130,246,0.5)",
             }}
           >
             ⏳ {timerLabel}
-            {isExpired && <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>}
+            {isExpired && (
+              <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -528,11 +575,15 @@ export default function Page() {
                   !canSubmit || loading || !isAuthed
                     ? "bg-slate-700/40 text-slate-400 cursor-not-allowed border border-slate-600/40"
                     : isExpired
-                    ? "bg-red-600 hover:bg-red-500 text-white"
-                    : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
+                      ? "bg-red-600 hover:bg-red-500 text-white"
+                      : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
                 }`}
             >
-              {loading ? "กำลังส่ง..." : isExpired ? "ส่งคำตอบที่เหลือ (หมดเวลา)" : "ส่งคำตอบ"}
+              {loading
+                ? "กำลังส่ง..."
+                : isExpired
+                  ? "ส่งคำตอบที่เหลือ (หมดเวลา)"
+                  : "ส่งคำตอบ"}
             </button>
           </div>
         </div>
