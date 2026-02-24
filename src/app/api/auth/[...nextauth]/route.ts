@@ -1,116 +1,139 @@
+// app/api/auth/[...nextauth]/route.ts
 import NextAuth, { type NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-// ฟังก์ชันสำหรับอ่าน Admin Emails จาก environment variables
-function adminSet() {
+// ฟังก์ชันสำหรับอ่าน Admin Emails จาก env (case-insensitive)
+function getAdminEmails() {
   const raw = process.env.ADMIN_EMAILS ?? "";
   return new Set(
     raw
       .split(",")
       .map((s) => s.trim().toLowerCase())
-      .filter(Boolean),
+      .filter(Boolean)
   );
 }
-const ADMINS = adminSet();
+
+const ADMINS = getAdminEmails();
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          prompt: "select_account", // บังคับให้เลือกบัญชีทุกครั้ง
+          prompt: "select_account",
           access_type: "offline",
           response_type: "code",
         },
       },
     }),
+
+    // Email Provider - ส่ง magic link จริงผ่าน SMTP (Gmail)
+    EmailProvider({
+      server: {
+        host: process.env.EMAIL_SERVER_HOST,
+        port: Number(process.env.EMAIL_SERVER_PORT),
+        auth: {
+          user: process.env.EMAIL_SERVER_USER,
+          pass: process.env.EMAIL_SERVER_PASSWORD,
+        },
+      },
+      from: process.env.EMAIL_FROM || "no-reply@mrich.com",
+    }),
   ],
 
-  // ✅ ใช้ JWT strategy เพื่อให้ middleware ตรวจสอบ role ได้ง่าย
+  // ใช้ JWT strategy เพื่อให้ middleware และ client อ่าน role ได้ง่าย
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 วัน
   },
 
   secret: process.env.NEXTAUTH_SECRET,
 
+  pages: {
+    signIn: "/signin",
+    signOut: "/signin",
+    error: "/signin?error=true",
+    newUser: "/home",
+    verifyRequest: "/verify-request", // หน้า "Check your email" ที่คุณเห็น
+  },
+
   callbacks: {
-    // ตรวจสอบการ Sign In
-    async signIn({ user }) {
-      // ต้องมี email เท่านั้นถึงจะเข้าได้
-      return !!user.email;
+    async signIn({ user, account, profile, email }) {
+      if (!user.email) {
+        console.log("Sign in rejected: No email");
+        return false;
+      }
+
+      const userEmail = user.email.toLowerCase();
+
+      try {
+        await prisma.user.upsert({
+          where: { email: userEmail },
+          create: {
+            email: userEmail,
+            name: user.name ?? profile?.name ?? null,
+            role: ADMINS.has(userEmail) ? "ADMIN" : "USER",
+          },
+          update: {
+            name: user.name ?? profile?.name ?? null,
+            role: ADMINS.has(userEmail) ? "ADMIN" : "USER",
+          },
+        });
+
+        console.log(`Sign in success: ${userEmail} (${ADMINS.has(userEmail) ? "ADMIN" : "USER"})`);
+        return true;
+      } catch (err) {
+        console.error("SignIn upsert error:", err);
+        return false;
+      }
     },
 
-    // JWT callback - ทำงานเมื่อมีการสร้างหรืออัปเดต JWT
     async jwt({ token, user }) {
-      if (user?.email) {
-        const email = user.email.toLowerCase();
-        const role = ADMINS.has(email) ? "ADMIN" : "USER";
-
-        try {
-          await prisma.user.upsert({
-            where: { email },
-            create: {
-              email,
-              name: user.name ?? null,
-              role: role as any,
-            },
-            update: {
-              role: role as any,
-            },
-          });
-        } catch (e) {
-          console.error("Role upsert failed:", e);
-        }
-
-        token.email = email;
-        (token as any).role = role;
-      } else if (token?.email) {
+      if (user) {
+        token.email = user.email?.toLowerCase();
+        token.role = ADMINS.has(token.email as string) ? "ADMIN" : "USER";
+      } else if (token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email as string },
           select: { role: true },
         });
-
-        (token as any).role = dbUser?.role ?? "USER";
+        token.role = dbUser?.role ?? "USER";
       }
 
       return token;
     },
-    // Session callback - ทำงานทุกครั้งที่เรียก useSession() หรือ getSession()
+
     async session({ session, token }) {
-      if (session.user) {
-        // ส่งข้อมูลจาก token ไปยัง session
+      if (session.user && token) {
         session.user.email = token.email as string;
-        (session.user as any).role = (token as any).role ?? "USER";
-        (session.user as any).id = token.sub; // เพิ่ม user id ถ้าต้องการ
+        (session.user as any).role = token.role ?? "USER";
+        (session.user as any).id = token.sub;
       }
       return session;
     },
   },
 
-  // เพิ่ม pages ที่กำหนดเอง (ถ้าต้องการ)
-  pages: {
-    signIn: "/signin",
-    error: "/signin", // หน้า error
-  },
-
-  // เพิ่ม event handlers (optional)
   events: {
     async signIn({ user }) {
-      console.log(`User signed in: ${user.email}`);
+      console.log(`[EVENT] User signed in: ${user.email}`);
     },
     async signOut({ token }) {
-      console.log(`User signed out: ${token.email}`);
+      console.log(`[EVENT] User signed out: ${token?.email}`);
+    },
+    async createUser({ user }) {
+      console.log(`[EVENT] New user created: ${user.email}`);
     },
   },
 
-  // เพิ่ม debug mode ใน development
   debug: process.env.NODE_ENV === "development",
 };
 

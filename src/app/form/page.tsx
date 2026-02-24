@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { questions as baseQuestions, maxTotal } from "@/lib/questions";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type ExamStateResp = {
   role: "ADMIN" | "USER";
@@ -44,7 +46,9 @@ function patchQuestions(qs: any[]) {
   };
 
   const leadNo = (s: string) => {
-    const m = String(s ?? "").trim().match(/^(\d+)\s*[.)]/);
+    const m = String(s ?? "")
+      .trim()
+      .match(/^(\d+)\s*[.)]/);
     return m ? Number(m[1]) : null;
   };
 
@@ -72,16 +76,29 @@ export default function Page() {
   const { data: session, status } = useSession();
 
   const questions = useMemo(() => patchQuestions(baseQuestions as any[]), []);
-  const [answers, setAnswers] = useState<string[]>(() => Array(questions.length).fill(""));
+  const [answers, setAnswers] = useState<string[]>(() =>
+    Array(questions.length).fill(""),
+  );
 
   const [loading, setLoading] = useState(false);
-  const [submitOk, setSubmitOk] = useState<SubmitOk | null>(null);
+  const [submitOk, setSubmitOk] = useState<SubmitOk | undefined>(undefined);
 
   const [state, setState] = useState<ExamStateResp | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
+  const [showWarningCasper, setShowWarningCasper] = useState(false);
+  const [showTimerAlert, setShowTimerAlert] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false);
+
+  const warningVideoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
   const isAuthed = !!session?.user;
-  const displayName = (session?.user?.name ?? session?.user?.email ?? "").trim();
+  const displayName = (
+    session?.user?.name ??
+    session?.user?.email ??
+    ""
+  ).trim();
 
   useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 250);
@@ -111,25 +128,75 @@ export default function Page() {
   const isExpired = (state?.expired ?? false) || secondsLeft <= 0;
   const locked = !!state?.locked;
 
+  // Casper เตือนเมื่อเหลือ 5 นาทีสุดท้าย (300 วินาที)
+  useEffect(() => {
+    if (
+      secondsLeft <= 300 &&
+      secondsLeft > 290 &&
+      !isExpired &&
+      !showWarningCasper
+    ) {
+      setShowWarningCasper(true);
+
+      if (warningVideoRef.current) {
+        warningVideoRef.current.currentTime = 0;
+        warningVideoRef.current.play().catch(() => {});
+      }
+
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      }
+    }
+  }, [secondsLeft, isExpired, showWarningCasper]);
+
+  // เสียงนาฬิกา + emoji ⏳ เมื่อเหลือ 10 วินาที
+  useEffect(() => {
+    if (secondsLeft <= 10 && secondsLeft > 0 && !isExpired) {
+      setShowTimerAlert(true);
+
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      }
+    } else {
+      setShowTimerAlert(false);
+      if (audioRef.current) audioRef.current.pause();
+    }
+  }, [secondsLeft, isExpired]);
+
+  // บังคับส่งอัตโนมัติเมื่อหมดเวลา
+  useEffect(() => {
+    if (
+      isExpired &&
+      !loading &&
+      submitOk === undefined &&
+      answers.some((v) => v.trim().length > 0)
+    ) {
+      alert("หมดเวลาแล้ว! ระบบกำลังส่งคำตอบที่คุณตอบไว้ให้อัตโนมัติ...");
+      submit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpired, loading, submitOk, answers]);
+
   const isLockedForInput = useMemo(() => {
     if (!state) return true;
     if (state.role === "ADMIN") return false;
-    return locked || isExpired;
-  }, [state, locked, isExpired]);
-
+    return locked || (isExpired && submitOk !== undefined);
+  }, [state, locked, isExpired, submitOk]);
+  const router = useRouter();
   const canSubmit = useMemo(() => {
     if (!state || !isAuthed) return false;
     if (!state.expiresAt) return false;
-    if (state.role === "USER" && (locked || isExpired)) return false;
-    if (isExpired) return false;
-    return answers.every((v) => v.trim().length > 0);
-  }, [state, isAuthed, answers, locked, isExpired]);
+    if (state.role === "USER" && locked) return false;
+    if (submitOk !== undefined) return false;
+    return true;
+  }, [state, isAuthed, locked, submitOk]);
 
   async function submit() {
     if (!canSubmit || loading) return;
 
     setLoading(true);
-    setSubmitOk(null);
 
     try {
       const res = await fetch("/api/exam/submit", {
@@ -153,8 +220,14 @@ export default function Page() {
       await loadState();
 
       setTimeout(() => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+        window.scrollTo({
+          top: document.body.scrollHeight,
+          behavior: "smooth",
+        });
       }, 100);
+    } catch (err) {
+      console.error("Submit error:", err);
+      alert("เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาติดต่อผู้ดูแลระบบ");
     } finally {
       setLoading(false);
     }
@@ -175,27 +248,133 @@ export default function Page() {
     return formatMMSS(secondsLeft);
   }, [isAuthed, state, secondsLeft]);
 
+  // เปิดเสียงเมื่อกดปุ่ม Click me 👻
+  const handleWarningInteract = () => {
+    setUserInteracted(true);
+
+    if (warningVideoRef.current) {
+      warningVideoRef.current.muted = false;
+      warningVideoRef.current.volume = 1.0;
+      warningVideoRef.current.play().catch(() => {});
+    }
+
+    if (audioRef.current) {
+      audioRef.current.muted = false;
+      audioRef.current.volume = 1.0;
+      audioRef.current.play().catch(() => {});
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-24">
       {/* keyframes */}
       <style jsx global>{`
         @keyframes flowerFloat {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-18px) rotate(4deg); }
+          0%,
+          100% {
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-18px) rotate(4deg);
+          }
         }
         @keyframes flowerGlow {
-          0%, 100% { filter: drop-shadow(0 0 8px rgba(96,165,250,0.35)); }
-          50% { filter: drop-shadow(0 0 18px rgba(96,165,250,0.75)); }
+          0%,
+          100% {
+            filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.35));
+          }
+          50% {
+            filter: drop-shadow(0 0 18px rgba(96, 165, 250, 0.75));
+          }
+        }
+        @keyframes casper-appear-fade {
+          0% {
+            transform: translateX(120%) translateY(0) scale(0.8);
+            opacity: 0;
+          }
+          15% {
+            transform: translateX(0) translateY(-20px) scale(1);
+            opacity: 1;
+          }
+          80% {
+            transform: translateX(0) translateY(-40px) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(-150%) translateY(-60px) scale(0.7);
+            opacity: 0;
+          }
+        }
+        .animate-casper {
+          animation: casper-appear-fade 8s ease-in-out forwards;
+        }
+        @keyframes bounce {
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
+        }
+        .animate-bounce {
+          animation: bounce 0.9s ease-in-out infinite;
         }
       `}</style>
 
-      {/* Background Flowers ... (เหมือนเดิม) */}
+      {/* Background Flowers */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* ... เก็บส่วนดอกไม้เดิมไว้ทั้งหมด ... */}
-        {/* วางโค้ดดอกไม้ทั้ง 4 อันเหมือนเดิมที่นี่ */}
+        {/* ... */}
       </div>
 
       <div className="absolute inset-0 bg-black/25" />
+
+      {/* เสียงนาฬิกาปลุก */}
+      <audio ref={audioRef} src="/alarm.mp3" preload="auto" />
+
+      {showWarningCasper && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          {/* ทำให้ด้านใน “กดได้” */}
+          <div className="pointer-events-auto">
+            <div className="w-48 h-48 animate-casper relative">
+              <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-yellow-400/70 shadow-2xl shadow-yellow-500/70 bg-black">
+                <video
+                  ref={warningVideoRef}
+                  autoPlay
+                  playsInline
+                  muted={!userInteracted}
+                  src="/casper-clip2.mp4"
+                  preload="auto"
+                  className="absolute left-1/2 top-1/2 w-[185%] h-[185%] object-cover"
+                  style={{
+                    transform:
+                      "translate(-50%, -50%) translateY(1px) scale(1.02)",
+                    transformOrigin: "center",
+                  }}
+                  onError={(e) => console.error("Warning video error:", e)}
+                />
+              </div>
+
+              {!userInteracted && (
+                <button
+                  type="button"
+                  onClick={handleWarningInteract}
+                  className="absolute -bottom-12 left-1/2 -translate-x-1/2 px-6 py-3 bg-yellow-600/90 text-white text-base font-bold rounded-full shadow-lg hover:bg-yellow-500 transition-all transform hover:scale-105"
+                >
+                  Click me 👻
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emoji นาฬิกาสั่น + เสียงนาฬิกา เมื่อเหลือ 10 วินาที */}
+      {showTimerAlert && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 text-5xl animate-bounce drop-shadow-lg pointer-events-none">
+          ⏳
+        </div>
+      )}
 
       <main className="relative max-w-5xl mx-auto px-4 sm:px-6 py-10">
         {/* Header */}
@@ -208,7 +387,6 @@ export default function Page() {
             </div>
 
             <div className="flex gap-2 items-center flex-wrap">
-              {/* ... ส่วน login/logout เหมือนเดิม ... */}
               {status === "loading" ? (
                 <span className="text-blue-200/70 text-sm">กำลังโหลด...</span>
               ) : isAuthed ? (
@@ -217,7 +395,10 @@ export default function Page() {
                     className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-blue-100 text-xs font-bold max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap"
                     title={displayName}
                   >
-                    {displayName} {state?.role ? <span className="text-blue-200/70">({state.role})</span> : null}
+                    {displayName}{" "}
+                    {state?.role ? (
+                      <span className="text-blue-200/70">({state.role})</span>
+                    ) : null}
                   </span>
                   <button
                     onClick={() => signOut()}
@@ -237,7 +418,6 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Pills + Timer (เวอร์ชัน desktop) */}
           <div className="mt-4 flex gap-2 flex-wrap items-center">
             <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
               คะแนนเต็ม: {maxTotal}
@@ -246,13 +426,16 @@ export default function Page() {
               ตอบแล้ว: {answeredCount}/{questions.length}
             </span>
 
-           
             {state?.role === "USER" && (
               <span
                 className="px-3 py-1 rounded-full text-xs font-extrabold border"
                 style={{
-                  background: locked ? "rgba(34,197,94,0.16)" : "rgba(255,255,255,0.08)",
-                  borderColor: locked ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.14)",
+                  background: locked
+                    ? "rgba(34,197,94,0.16)"
+                    : "rgba(255,255,255,0.08)",
+                  borderColor: locked
+                    ? "rgba(34,197,94,0.35)"
+                    : "rgba(255,255,255,0.14)",
                 }}
               >
                 {locked ? "✅ ส่งแล้ว" : "📝 ยังไม่ส่ง"}
@@ -260,7 +443,6 @@ export default function Page() {
             )}
           </div>
 
-          {/* Admin buttons */}
           <div className="mt-4 flex gap-3 flex-wrap">
             {state?.role === "ADMIN" && (
               <button
@@ -271,12 +453,18 @@ export default function Page() {
                 เริ่มเวลาใหม่ (admin)
               </button>
             )}
+
+            <Link
+              href="/home"
+              className="rounded-full px-6 py-3 font-extrabold transition border border-cyan-400/30 bg-cyan-400/10 hover:bg-cyan-400/20 text-cyan-200"
+            >
+              ← Back to Home
+            </Link>
           </div>
         </section>
 
         <div className="h-8" />
 
-        {/* คำถามทั้งหมด */}
         <div className="space-y-5 pb-12">
           {questions.map((q, qIdx) => (
             <section
@@ -294,41 +482,50 @@ export default function Page() {
                   next[qIdx] = e.target.value;
                   setAnswers(next);
                 }}
-                placeholder={isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."}
+                placeholder={
+                  isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."
+                }
                 disabled={isLockedForInput}
                 className={`mt-3 w-full rounded-xl border px-4 py-3 text-sm sm:text-base leading-relaxed outline-none resize-y min-h-[140px]
-                  ${isLockedForInput
-                    ? "bg-black/20 border-blue-300/10 text-blue-100/70"
-                    : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
+                  ${
+                    isLockedForInput
+                      ? "bg-black/20 border-blue-300/10 text-blue-100/70"
+                      : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
                   }`}
               />
             </section>
           ))}
         </div>
 
-        {/* ส่วนแสดงผลเมื่อส่งสำเร็จ */}
         {submitOk && (
           <section className="mt-10 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 backdrop-blur-xl p-6 shadow-2xl text-center">
-            <h2 className="text-2xl font-bold text-emerald-300 mb-2">ส่งคำตอบเรียบร้อยแล้ว!</h2>
-            <div className="text-sm text-emerald-100/80">Response ID: {submitOk.id}</div>
+            <h2 className="text-2xl font-bold text-emerald-300 mb-2">
+              ส่งคำตอบเรียบร้อยแล้ว!
+            </h2>
+            <div className="text-sm text-emerald-100/80">
+              Response ID: {submitOk.id}
+            </div>
           </section>
         )}
       </main>
 
-      {/* ─────────────────────────────────────────────── */}
-      {/* Floating Timer + Submit Button (sticky bottom) */}
-      {/* ─────────────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-blue-500/20 bg-gradient-to-t from-slate-950/95 to-slate-900/80 backdrop-blur-lg py-3 px-4 shadow-2xl">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4 flex-wrap">
-          {/* Timer (แสดงตลอดใน mobile) */}
           <div
-            className="px-4 py-2 rounded-full text-sm font-extrabold border shadow-md"
+            className="px-4 py-2 rounded-full text-sm font-extrabold border shadow-md relative"
             style={{
-              background: isExpired ? "rgba(239,68,68,0.22)" : "rgba(59,130,246,0.22)",
-              borderColor: isExpired ? "rgba(239,68,68,0.5)" : "rgba(59,130,246,0.5)",
+              background: isExpired
+                ? "rgba(239,68,68,0.22)"
+                : "rgba(59,130,246,0.22)",
+              borderColor: isExpired
+                ? "rgba(239,68,68,0.5)"
+                : "rgba(59,130,246,0.5)",
             }}
           >
             ⏳ {timerLabel}
+            {isExpired && (
+              <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
@@ -343,10 +540,16 @@ export default function Page() {
                 ${
                   !canSubmit || loading || !isAuthed
                     ? "bg-slate-700/40 text-slate-400 cursor-not-allowed border border-slate-600/40"
-                    : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
+                    : isExpired
+                      ? "bg-red-600 hover:bg-red-500 text-white"
+                      : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
                 }`}
             >
-              {loading ? "กำลังส่ง..." : "ส่งคำตอบ"}
+              {loading
+                ? "กำลังส่ง..."
+                : isExpired
+                  ? "ส่งคำตอบที่เหลือ (หมดเวลา)"
+                  : "ส่งคำตอบ"}
             </button>
           </div>
         </div>

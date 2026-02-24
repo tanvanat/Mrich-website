@@ -3,7 +3,7 @@ import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
 const FORM_ID = "mrich-assessment-v1";
-const EXAM_MINUTES = 30;
+const EXAM_MINUTES = 6;
 
 function newAttemptToken() {
   return crypto.randomUUID();

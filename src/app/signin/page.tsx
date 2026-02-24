@@ -2,31 +2,90 @@
 
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
 export default function SignInPage() {
   const { status } = useSession();
   const router = useRouter();
 
+  const [email, setEmail] = useState("");
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (status === "authenticated") router.push("/home");
+    if (status === "authenticated") {
+      router.push("/home");
+    }
   }, [status, router]);
 
   const handleEmailSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.currentTarget;
-    const email = (form.elements.namedItem("email") as HTMLInputElement)?.value?.trim();
+    setError(null);
 
-    if (!email) {
-      alert("Please enter a valid email address.");
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError("กรุณากรอกอีเมลให้ถูกต้อง");
       return;
     }
 
-    await signIn("email", { email, callbackUrl: "/home" });
+    setLoadingEmail(true);
+
+    try {
+      console.log("เริ่ม signIn ด้วย email:", trimmedEmail);
+      const res = await signIn("email", {
+        redirect: false,
+        email: trimmedEmail,
+        callbackUrl: "/home",
+      });
+
+      if (res?.error) {
+        console.error("Email sign-in error:", res.error);
+        setError("ไม่สามารถส่งลิงก์ยืนยันได้ กรุณาลองใหม่หรือตรวจสอบอีเมล");
+      } else if (res?.url) {
+        router.push(res.url);
+      } else {
+        setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ กรุณาลองใหม่");
+      }
+    } catch (err) {
+      console.error("Unexpected error during email sign-in:", err);
+      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาตรวจสอบอินเทอร์เน็ต");
+    } finally {
+      setLoadingEmail(false);
+    }
   };
 
-  const handleGoogleSignIn = () => signIn("google", { callbackUrl: "/home" });
+  const handleGoogleSignIn = async () => {
+    setLoadingGoogle(true);
+    setError(null);
+
+    try {
+      console.log("เริ่ม signIn ด้วย Google...");
+      const res = await signIn("google", {
+        redirect: false,
+        callbackUrl: "/home",
+      });
+
+      if (res?.error) {
+        console.error("Google sign-in error:", res.error);
+        if (res.error.includes("access_denied")) {
+          setError("คุณยกเลิกการล็อกอิน Google หรือไม่ได้อนุญาต");
+        } else {
+          setError("ไม่สามารถล็อกอินด้วย Google ได้ กรุณาลองใหม่");
+        }
+      } else if (res?.url) {
+        router.push(res.url);
+      } else {
+        setError("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
+      }
+    } catch (err) {
+      console.error("Unexpected error during Google sign-in:", err);
+      setError("เกิดข้อผิดพลาดในการเชื่อมต่อ Google");
+    } finally {
+      setLoadingGoogle(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden flex items-center justify-center px-6 text-white bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
@@ -82,66 +141,82 @@ export default function SignInPage() {
       {/* Card */}
       <div className="relative z-10 w-full max-w-md backdrop-blur-xl bg-white/5 border border-blue-400/20 rounded-2xl shadow-2xl p-8 text-left">
         <h1 className="text-3xl font-bold mb-2 font-serif drop-shadow-[0_0_30px_rgba(96,165,250,0.5)]">
-          Log In
+          เข้าสู่ระบบ
         </h1>
 
-        <p className="text-sm text-blue-200/80">
-          Don&apos;t have an account?{" "}
+        <p className="text-sm text-blue-200/80 mb-6">
+          ยังไม่มีบัญชี?{" "}
           <Link href="/signup" className="text-blue-200 underline underline-offset-4 hover:text-white">
-            Sign Up
+            สมัครสมาชิก
           </Link>
         </p>
 
-        {/* Email */}
-        <form onSubmit={handleEmailSignIn} className="mt-6">
-          <label htmlFor="email" className="block text-sm text-blue-100">
-            Email
-          </label>
+        {/* Error message */}
+        {error && (
+          <div className="mt-4 p-4 bg-red-500/20 border border-red-400/40 rounded-xl text-red-200 text-sm">
+            {error}
+          </div>
+        )}
 
+        {/* Email Form */}
+        <form onSubmit={handleEmailSignIn} className="mt-6">
+          <label htmlFor="email" className="block text-sm text-blue-100 mb-2">
+            อีเมล
+          </label>
           <input
             id="email"
             name="email"
             type="email"
-            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="กรอกอีเมลของคุณ"
             required
-            className="w-full mt-2 px-4 py-2 rounded-lg bg-white/10 border border-blue-300/20 text-white placeholder-blue-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-4 py-3 rounded-xl bg-white/10 border border-blue-300/20 text-white placeholder-blue-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition"
           />
 
           <div className="text-left mt-3">
             <Link href="/forgot-email" className="text-blue-200/80 text-sm hover:text-white underline underline-offset-4">
-              Forgot Email?
+              ลืมอีเมล?
             </Link>
           </div>
 
           <button
             type="submit"
-            className="w-full mt-5 h-11 rounded-full bg-blue-500 hover:bg-blue-400 transition-all duration-300 font-semibold shadow-lg shadow-blue-500/30 hover:scale-[1.02]"
+            disabled={loadingEmail}
+            className={`w-full mt-6 h-12 rounded-full transition-all duration-300 font-semibold shadow-lg
+              ${loadingEmail 
+                ? "bg-blue-700/50 cursor-wait" 
+                : "bg-blue-600 hover:bg-blue-500 hover:shadow-xl hover:scale-[1.02]"}`}
           >
-            Continue with Email
+            {loadingEmail ? "กำลังส่งลิงก์..." : "เข้าสู่ระบบด้วยอีเมล"}
           </button>
         </form>
 
-        {/* OR */}
-        <div className="relative mt-6 flex items-center">
+        {/* Divider */}
+        <div className="relative my-8 flex items-center">
           <div className="flex-grow border-t border-blue-300/20" />
-          <span className="mx-3 text-sm text-blue-200/70">OR</span>
+          <span className="mx-4 text-sm text-blue-200/70">หรือ</span>
           <div className="flex-grow border-t border-blue-300/20" />
         </div>
 
-        {/* Social */}
-        <div className="mt-6 space-y-3">
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            className="w-full h-11 rounded-full border border-blue-300/20 bg-white/5 hover:bg-white/10 transition-all duration-300 flex items-center justify-center gap-2"
-          >
-            <img src="/google.png" alt="Google" className="h-5 w-5 object-contain" />
-            <span className="text-blue-100">Continue with Google</span>
-          </button>
-        </div>
+        {/* Google Button */}
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={loadingGoogle}
+          className={`w-full h-12 rounded-full border border-blue-300/30 transition-all duration-300 flex items-center justify-center gap-3
+            ${loadingGoogle 
+              ? "bg-gray-700/50 cursor-wait" 
+              : "bg-white/5 hover:bg-white/10 active:scale-95"}`}
+        >
+          <img src="/google.png" alt="Google" className="h-6 w-6 object-contain" />
+          <span className="text-blue-100 font-medium">
+            {loadingGoogle ? "กำลังเชื่อมต่อ Google..." : "เข้าสู่ระบบด้วย Google"}
+          </span>
+        </button>
 
-        <p className="text-xs text-blue-200/60 mt-6">
-          By continuing, you agree to our terms.
+        <p className="text-xs text-blue-200/60 mt-8 text-center">
+          การดำเนินการต่อแสดงว่าคุณยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัวของเรา
         </p>
       </div>
     </div>
