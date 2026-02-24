@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { questions as baseQuestions, maxTotal } from "@/lib/questions";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type ExamStateResp = {
@@ -18,6 +17,9 @@ type ExamStateResp = {
 type SubmitOk = {
   id: string;
 };
+
+type ToastType = "info" | "success" | "error";
+type ToastState = { type: ToastType; message: string } | null;
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -77,7 +79,7 @@ export default function Page() {
 
   const questions = useMemo(() => patchQuestions(baseQuestions as any[]), []);
   const [answers, setAnswers] = useState<string[]>(() =>
-    Array(questions.length).fill(""),
+    Array(questions.length).fill("")
   );
 
   const [loading, setLoading] = useState(false);
@@ -90,6 +92,9 @@ export default function Page() {
   const [showTimerAlert, setShowTimerAlert] = useState(false);
   const [userInteracted, setUserInteracted] = useState(false);
 
+  const [toast, setToast] = useState<ToastState>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
   const warningVideoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -99,6 +104,19 @@ export default function Page() {
     session?.user?.email ??
     ""
   ).trim();
+
+  // ---- toast helpers (no browser popup) ----
+  const showToast = (type: ToastType, message: string, ms = 3500) => {
+    setToast({ type, message });
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), ms);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 250);
@@ -138,6 +156,7 @@ export default function Page() {
     ) {
       setShowWarningCasper(true);
 
+      warningVideoRef.current?.pause();
       if (warningVideoRef.current) {
         warningVideoRef.current.currentTime = 0;
         warningVideoRef.current.play().catch(() => {});
@@ -154,7 +173,6 @@ export default function Page() {
   useEffect(() => {
     if (secondsLeft <= 10 && secondsLeft > 0 && !isExpired) {
       setShowTimerAlert(true);
-
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(() => {});
@@ -165,26 +183,12 @@ export default function Page() {
     }
   }, [secondsLeft, isExpired]);
 
-  // บังคับส่งอัตโนมัติเมื่อหมดเวลา
-  useEffect(() => {
-    if (
-      isExpired &&
-      !loading &&
-      submitOk === undefined &&
-      answers.some((v) => v.trim().length > 0)
-    ) {
-      alert("หมดเวลาแล้ว! ระบบกำลังส่งคำตอบที่คุณตอบไว้ให้อัตโนมัติ...");
-      submit();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExpired, loading, submitOk, answers]);
-
   const isLockedForInput = useMemo(() => {
     if (!state) return true;
     if (state.role === "ADMIN") return false;
     return locked || (isExpired && submitOk !== undefined);
   }, [state, locked, isExpired, submitOk]);
-  const router = useRouter();
+
   const canSubmit = useMemo(() => {
     if (!state || !isAuthed) return false;
     if (!state.expiresAt) return false;
@@ -193,7 +197,7 @@ export default function Page() {
     return true;
   }, [state, isAuthed, locked, submitOk]);
 
-  async function submit() {
+  async function submit(opts?: { silent?: boolean }) {
     if (!canSubmit || loading) return;
 
     setLoading(true);
@@ -212,12 +216,24 @@ export default function Page() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert("ส่งไม่สำเร็จ: " + (data?.error ?? "unknown"));
+        // ❌ ไม่โชว์ prisma error ให้ user
+        console.error("Submit failed:", data);
+        showToast(
+          "error",
+          "ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หรือแจ้งผู้ดูแลระบบ",
+          4500
+        );
         return;
       }
 
       setSubmitOk({ id: data?.id ?? "-" });
       await loadState();
+
+      if (!opts?.silent) {
+        showToast("success", "ส่งคำตอบเรียบร้อยแล้ว ✅", 3000);
+      } else {
+        showToast("info", "หมดเวลาแล้ว ระบบส่งคำตอบให้อัตโนมัติ ✅", 3500);
+      }
 
       setTimeout(() => {
         window.scrollTo({
@@ -227,11 +243,25 @@ export default function Page() {
       }, 100);
     } catch (err) {
       console.error("Submit error:", err);
-      alert("เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาติดต่อผู้ดูแลระบบ");
+      showToast("error", "เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่", 4500);
     } finally {
       setLoading(false);
     }
   }
+
+  // บังคับส่งอัตโนมัติเมื่อหมดเวลา (❌ ไม่มี alert แล้ว)
+  useEffect(() => {
+    if (
+      isExpired &&
+      !loading &&
+      submitOk === undefined &&
+      answers.some((v) => v.trim().length > 0)
+    ) {
+      // ทำเงียบๆ + toast
+      submit({ silent: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpired, loading, submitOk, answers]);
 
   async function adminResetTimer() {
     if (state?.role !== "ADMIN") return;
@@ -264,6 +294,13 @@ export default function Page() {
       audioRef.current.play().catch(() => {});
     }
   };
+
+  const toastBg =
+    toast?.type === "success"
+      ? "bg-emerald-500/15 border-emerald-300/25 text-emerald-100"
+      : toast?.type === "error"
+        ? "bg-red-500/15 border-red-300/25 text-red-100"
+        : "bg-blue-500/15 border-blue-300/25 text-blue-100";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-24">
@@ -322,19 +359,113 @@ export default function Page() {
         }
       `}</style>
 
-      {/* Background Flowers */}
+      {/* ✅ Background Flowers (เหมือนหน้า Home) */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* ... */}
+        <div className="absolute -top-16 right-0 opacity-15 animate-[flowerFloat_7s_ease-in-out_infinite]">
+          <svg
+            width="260"
+            height="260"
+            viewBox="0 0 100 100"
+            className="animate-[flowerGlow_3s_ease-in-out_infinite]"
+          >
+            <g transform="translate(50,50)">
+              {[0, 60, 120, 180, 240, 300].map((deg, i) => (
+                <ellipse
+                  key={i}
+                  rx="18"
+                  ry="32"
+                  fill="#3b82f6"
+                  transform={`rotate(${deg})`}
+                />
+              ))}
+              <circle r="12" fill="#1e3a8a" />
+              <circle r="7" fill="#93c5fd" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute bottom-[-80px] left-[-70px] opacity-10 animate-[flowerFloat_8s_ease-in-out_infinite_1s]">
+          <svg width="260" height="260" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[0, 72, 144, 216, 288].map((deg, i) => (
+                <ellipse
+                  key={i}
+                  rx="18"
+                  ry="30"
+                  fill="#60a5fa"
+                  transform={`rotate(${deg})`}
+                />
+              ))}
+              <circle r="10" fill="#1e40af" />
+              <circle r="6" fill="#bfdbfe" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute top-1/2 left-10 opacity-10 animate-[flowerFloat_9s_ease-in-out_infinite_2s]">
+          <svg width="110" height="110" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[0, 90, 180, 270].map((deg, i) => (
+                <ellipse
+                  key={i}
+                  rx="14"
+                  ry="24"
+                  fill="#7dd3fc"
+                  transform={`rotate(${deg})`}
+                />
+              ))}
+              <circle r="8" fill="#0e7490" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute bottom-1/3 right-16 opacity-10 animate-[flowerFloat_6.5s_ease-in-out_infinite]">
+          <svg width="110" height="110" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[30, 90, 150, 210, 270, 330].map((deg, i) => (
+                <ellipse
+                  key={i}
+                  rx="12"
+                  ry="22"
+                  fill="#a5f3fc"
+                  transform={`rotate(${deg})`}
+                />
+              ))}
+              <circle r="6" fill="#0e7490" />
+            </g>
+          </svg>
+        </div>
       </div>
 
       <div className="absolute inset-0 bg-black/25" />
 
+      {/* ✅ Toast (แทน alert popup) */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4">
+          <div
+            className={`max-w-[92vw] sm:max-w-[560px] rounded-2xl border backdrop-blur-xl shadow-2xl px-4 py-3 text-sm font-semibold ${toastBg}`}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex-1">{toast.message}</div>
+              <button
+                type="button"
+                onClick={() => setToast(null)}
+                className="opacity-80 hover:opacity-100 transition text-base leading-none"
+                aria-label="close"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* เสียงนาฬิกาปลุก */}
       <audio ref={audioRef} src="/alarm.mp3" preload="auto" />
 
+      {/* Casper เตือน 5 นาทีสุดท้าย */}
       {showWarningCasper && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-          {/* ทำให้ด้านใน “กดได้” */}
           <div className="pointer-events-auto">
             <div className="w-48 h-48 animate-casper relative">
               <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-yellow-400/70 shadow-2xl shadow-yellow-500/70 bg-black">
@@ -348,7 +479,7 @@ export default function Page() {
                   className="absolute left-1/2 top-1/2 w-[185%] h-[185%] object-cover"
                   style={{
                     transform:
-                      "translate(-50%, -50%) translateY(1px) scale(1.02)",
+                      "translate(-50%, -50%) translateY(18px) scale(1.02)",
                     transformOrigin: "center",
                   }}
                   onError={(e) => console.error("Warning video error:", e)}
@@ -509,6 +640,7 @@ export default function Page() {
         )}
       </main>
 
+      {/* Floating Timer + Submit Button */}
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-blue-500/20 bg-gradient-to-t from-slate-950/95 to-slate-900/80 backdrop-blur-lg py-3 px-4 shadow-2xl">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-4 flex-wrap">
           <div
@@ -534,7 +666,7 @@ export default function Page() {
             </div>
 
             <button
-              onClick={submit}
+              onClick={() => submit()}
               disabled={!canSubmit || loading || !isAuthed}
               className={`rounded-full px-7 py-3 font-extrabold transition shadow-lg
                 ${
