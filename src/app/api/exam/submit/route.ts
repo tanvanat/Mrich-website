@@ -6,7 +6,7 @@ import { questions, maxTotal, scoreAnswer, levelFromPercent } from "@/lib/questi
 import crypto from "crypto";
 
 const FORM_ID = "mrich-assessment-v1";
-const EXAM_MINUTES = 6;
+const EXAM_MINUTES = 30;
 
 export async function POST(req: Request) {
   console.time("submit-total-time");
