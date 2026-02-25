@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Lock, ArrowRight, Shield } from "lucide-react";
+
+type MeResp =
+  | { authed: true; nick: string; role: "ADMIN" | "USER" }
+  | { authed: false };
 
 type ScoreData = {
   hasScore: boolean;
@@ -13,108 +17,115 @@ type ScoreData = {
   message?: string;
 };
 
-function getCookie(name: string) {
-  const m = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
-  return m ? decodeURIComponent(m[2]) : null;
-}
-function deleteCookie(name: string) {
-  document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
-}
-
 export default function HomePage() {
   const router = useRouter();
 
-  const [nickname, setNickname] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  const [showPopup, setShowPopup] = useState(true);
+  const [me, setMe] = useState<MeResp | null>(null);
   const [score, setScore] = useState<ScoreData | null>(null);
   const [loadingScore, setLoadingScore] = useState(true);
 
+  const [showPopup, setShowPopup] = useState(true);
   const [showCasper, setShowCasper] = useState(true);
   const [userInteracted, setUserInteracted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // read cookie + compute admin from env list via API? (ง่ายสุด: ใช้ endpoint state แล้วดู role จาก DB)
+  // ✅ auth via server (cookie)
   useEffect(() => {
-    const nick = (getCookie("mrich_nick") || "").trim().toLowerCase();
-    if (!nick) {
-      router.push("/signin");
-      return;
-    }
-    setNickname(nick);
-
-    // เช็ค admin จาก backend (role ใน DB)
-    fetch("/api/exam/state", { cache: "no-store", credentials: "include" })
-      .then(async (r) => {
-        if (!r.ok) return;
-        // role อยู่ใน DB แต่ endpoint นี้ยังไม่คืน role
-        // ง่ายสุด: ใช้ rule เดียวกับ middleware -> admin names จาก env ใน client อ่านไม่ได้
-        // ดังนั้นให้เปิด admin link เฉพาะถ้า user ลองเข้า /admin แล้ว middleware ผ่าน
-        // แต่เพื่อ UX: ผมทำ heuristic: ถ้า nick เป็น front หรือ mee ให้โชว์
-        if (nick === "front" || nick === "mee") setIsAdmin(true);
+    fetch("/api/auth/me", { cache: "no-store", credentials: "include" })
+      .then(async (res) => {
+        if (!res.ok) return { authed: false } as MeResp;
+        return (await res.json()) as MeResp;
       })
-      .catch(() => {});
+      .then((data) => {
+        setMe(data);
+        if (!("authed" in data) || data.authed === false) {
+          router.replace("/signin");
+        }
+      })
+      .catch(() => {
+        setMe({ authed: false });
+        router.replace("/signin");
+      });
   }, [router]);
 
+  // ✅ load score only after authed
   useEffect(() => {
-    if (!nickname) return;
+    if (!me || me.authed === false) return;
 
     setLoadingScore(true);
     fetch("/api/user/score", { cache: "no-store", credentials: "include" })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch score");
-        return res.json();
-      })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: ScoreData) => setScore(data))
       .catch(() => setScore({ hasScore: false, message: "ไม่สามารถโหลดคะแนนได้" }))
       .finally(() => setLoadingScore(false));
-  }, [nickname]);
+  }, [me]);
 
+  // Casper hide
   useEffect(() => {
     if (!showCasper) return;
-    const timer = setTimeout(() => setShowCasper(false), 7000);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setShowCasper(false), 7000);
+    return () => clearTimeout(t);
   }, [showCasper]);
 
+  // gesture to allow sound
   useEffect(() => {
     if (userInteracted) return;
-
-    const handleInteraction = () => {
+    const handle = () => {
       setUserInteracted(true);
       if (videoRef.current) {
         videoRef.current.muted = false;
         videoRef.current.play().catch(() => {});
       }
-      document.removeEventListener("click", handleInteraction);
-      document.removeEventListener("scroll", handleInteraction);
-      document.removeEventListener("touchstart", handleInteraction);
+      document.removeEventListener("click", handle);
+      document.removeEventListener("scroll", handle);
+      document.removeEventListener("touchstart", handle);
     };
-
-    document.addEventListener("click", handleInteraction);
-    document.addEventListener("scroll", handleInteraction);
-    document.addEventListener("touchstart", handleInteraction);
-
+    document.addEventListener("click", handle);
+    document.addEventListener("scroll", handle);
+    document.addEventListener("touchstart", handle);
     return () => {
-      document.removeEventListener("click", handleInteraction);
-      document.removeEventListener("scroll", handleInteraction);
-      document.removeEventListener("touchstart", handleInteraction);
+      document.removeEventListener("click", handle);
+      document.removeEventListener("scroll", handle);
+      document.removeEventListener("touchstart", handle);
     };
   }, [userInteracted]);
 
-  const userLabel = useMemo(() => nickname ?? "unknown", [nickname]);
-  const handleTeamGoalsClick = () => router.push("/goal");
+  const isAdmin = !!me && me.authed === true && me.role === "ADMIN";
+  const userLabel = useMemo(() => (me && me.authed ? me.nick : "unknown"), [me]);
 
   const courses = useMemo(
     () => [
-      { id: 1, title: "Course 1", subtitle: "Leadership basics • habits • reflection", accent: "from-blue-500/25 to-indigo-500/10", locked: true },
-      { id: 2, title: "Course 2", subtitle: "Communication • Win/Win • teamwork", accent: "from-sky-500/25 to-blue-500/10", locked: true },
-      { id: 3, title: "Course 3", subtitle: "Finance • Relationship • Productivity", accent: "from-indigo-500/25 to-violet-500/10", locked: true },
+      {
+        id: 1,
+        title: "Course 1",
+        subtitle: "Leadership basics • habits • reflection",
+        accent: "from-blue-500/25 to-indigo-500/10",
+        locked: true,
+      },
+      {
+        id: 2,
+        title: "Course 2",
+        subtitle: "Communication • Win/Win • teamwork",
+        accent: "from-sky-500/25 to-blue-500/10",
+        locked: true,
+      },
+      {
+        id: 3,
+        title: "Course 3",
+        subtitle: "Finance • Relationship • Productivity",
+        accent: "from-indigo-500/25 to-violet-500/10",
+        locked: true,
+      },
     ],
     []
   );
 
-  if (!nickname) {
+  const signOutNick = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    window.location.href = "/signin";
+  };
+
+  if (!me) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100">
         Loading...
@@ -126,6 +137,7 @@ export default function HomePage() {
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
       <div className="absolute inset-0 bg-black/25" />
 
+      {/* Casper */}
       {showCasper && (
         <div className="fixed top-[15%] right-[5%] z-50 w-36 h-36 pointer-events-none animate-casper-float-in-out">
           <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-cyan-300/60 shadow-2xl shadow-cyan-500/70">
@@ -137,24 +149,8 @@ export default function HomePage() {
               src="/casper-newbg2.mp4"
               className="absolute inset-0 w-[140%] h-[140%] object-cover object-[50%_35%] scale-100"
               onEnded={() => setShowCasper(false)}
-              onError={(e) => console.error("Video error:", e)}
             />
           </div>
-
-          {!userInteracted && (
-            <button
-              onClick={() => {
-                setUserInteracted(true);
-                if (videoRef.current) {
-                  videoRef.current.muted = false;
-                  videoRef.current.play().catch(() => {});
-                }
-              }}
-              className="absolute -bottom-10 left-1/2 -translate-x-1/2 px-4 py-2 bg-cyan-600/90 text-white text-sm font-bold rounded-full shadow-lg hover:bg-cyan-500 transition-all transform hover:scale-105 z-60 pointer-events-auto"
-            >
-              Click me 👻
-            </button>
-          )}
         </div>
       )}
 
@@ -206,10 +202,7 @@ export default function HomePage() {
               </Link>
 
               <button
-                onClick={() => {
-                  deleteCookie("mrich_nick");
-                  router.push("/signin");
-                }}
+                onClick={signOutNick}
                 className="rounded-full border border-blue-300/30 px-5 py-2 font-semibold text-blue-100 hover:bg-white/10 transition-all duration-300"
               >
                 Sign out
@@ -228,9 +221,9 @@ export default function HomePage() {
           )}
         </div>
 
+        {/* Courses */}
         <div className="mt-10">
           <div className="text-xl md:text-2xl font-bold text-white font-serif">Your Courses</div>
-
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
             {courses.map((c) => (
               <div
@@ -241,12 +234,9 @@ export default function HomePage() {
                 <div className="relative p-6">
                   <div className="text-lg font-semibold text-white">{c.title}</div>
                   <div className="mt-1 text-sm text-blue-200/80">{c.subtitle}</div>
-
                   <div className="mt-6 rounded-xl border border-blue-300/15 bg-black/20 p-4">
                     <div className="text-blue-100 font-semibold">Preview</div>
-                    <div className="mt-1 text-sm text-blue-200/70">
-                      Content will appear here once unlocked.
-                    </div>
+                    <div className="mt-1 text-sm text-blue-200/70">Content will appear here once unlocked.</div>
                   </div>
                 </div>
 
@@ -264,6 +254,7 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Popup */}
         {showPopup && (
           <div className="fixed bottom-6 right-6 z-50 w-80 max-w-[90vw] rounded-2xl border border-blue-200/30 bg-white/10 backdrop-blur-xl shadow-2xl p-4 text-blue-50">
             <div className="flex justify-between items-start gap-3">
@@ -276,9 +267,8 @@ export default function HomePage() {
                 ×
               </button>
             </div>
-
             <button
-              onClick={handleTeamGoalsClick}
+              onClick={() => router.push("/goal")}
               className="mt-3 w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-full hover:bg-blue-400 transition shadow-lg shadow-blue-500/25"
             >
               Team Goals
