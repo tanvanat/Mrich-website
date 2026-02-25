@@ -1,35 +1,23 @@
-// สำหรับ user ทั่วไป ดูคะแนนของตัวเอง (GET) ในหน้า Home
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // ปรับ path ให้ถูก
-import { prisma } from "@/lib/prisma"; // ← ใช้แบบ named import
+import { prisma } from "@/lib/prisma";
+import { getNickFromCookie, getOrCreateUserByNick } from "@/lib/auth";
+
+const FORM_ID = "mrich-assessment-v1";
 
 export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const nick = await getNickFromCookie();
+  if (!nick) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const email = session.user.email;
+  const user = await getOrCreateUserByNick(nick);
 
   const latestResponse = await prisma.response.findFirst({
-    where: {
-      user: { email },
-    },
+    where: { userId: user.id, formId: FORM_ID },
     orderBy: { createdAt: "desc" },
-    select: {
-      totalScore: true,
-      maxScore: true,
-      createdAt: true,
-      updatedAt: true,
-    },
+    select: { totalScore: true, maxScore: true, updatedAt: true },
   });
 
-  if (!latestResponse || latestResponse.totalScore === null) {
-    return NextResponse.json({
-      hasScore: false,
-      message: "ยังไม่ได้รับการตรวจ",
-    });
+  if (!latestResponse) {
+    return NextResponse.json({ hasScore: false, message: "ยังไม่ได้รับการตรวจ" });
   }
 
   const percent = Math.round((latestResponse.totalScore / latestResponse.maxScore) * 100);

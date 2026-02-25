@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { getNickFromCookie, getOrCreateUserByNick, isNickAdmin } from "@/lib/auth";
 
 const FORM_ID = "mrich-assessment-v1";
 const EXAM_MINUTES = 30;
@@ -9,73 +9,35 @@ function newAttemptToken() {
   return crypto.randomUUID();
 }
 
-export async function GET(req: Request) {
-  const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
-  if (!token?.email) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+export async function GET() {
+  const nick = await getNickFromCookie();
+  if (!nick) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const email = (token.email as string).toLowerCase();
-  const role = ((token as any).role ?? "USER") as "ADMIN" | "USER";
-
-  const url = new URL(req.url);
-  const reset = url.searchParams.get("reset") === "1"; // ✅ admin เท่านั้นถึงใช้ได้
-
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, role: true, email: true, name: true },
-  });
-  if (!user) return NextResponse.json({ error: "user not found" }, { status: 404 });
+  const user = await getOrCreateUserByNick(nick);
+  const role = isNickAdmin(nick) ? "ADMIN" : "USER";
 
   let state = await prisma.examState.findUnique({
     where: { userId_formId: { userId: user.id, formId: FORM_ID } },
   });
 
-  // 1) create ครั้งแรก: เริ่มจับเวลาทันทีเมื่อเข้าหน้า
+  // create ครั้งแรก
   if (!state) {
     state = await prisma.examState.create({
       data: {
         userId: user.id,
         formId: FORM_ID,
         attemptToken: newAttemptToken(),
-        startedAt: new Date(),
+        startedAt: role === "USER" ? new Date() : null, // user เริ่มจับเวลาเมื่อเข้า
         locked: false,
       },
     });
   } else {
-    const startedAt = state.startedAt;
-    const expired = startedAt
-      ? Date.now() > startedAt.getTime() + EXAM_MINUTES * 60 * 1000
-      : false;
-
-    // 2) ✅ ADMIN: รีเซ็ตได้ “เฉพาะ” ตอน reset=1
-    if (role === "ADMIN" && reset) {
+    // USER: ถ้ายังไม่ startedAt (เช่นถูก admin ปลดแล้วตั้ง startedAt=null) → เริ่มใหม่
+    if (role === "USER" && !state.locked && !state.startedAt) {
       state = await prisma.examState.update({
         where: { id: state.id },
-        data: {
-          attemptToken: newAttemptToken(),
-          startedAt: new Date(),
-          locked: false,
-        },
+        data: { startedAt: new Date(), attemptToken: newAttemptToken() },
       });
-    } else {
-      // 3) ADMIN: ถ้าหมดเวลาหรือ locked -> เปิดรอบใหม่อัตโนมัติ (ถ้าคุณต้องการ)
-      if (role === "ADMIN" && (expired || state.locked)) {
-        state = await prisma.examState.update({
-          where: { id: state.id },
-          data: {
-            attemptToken: newAttemptToken(),
-            startedAt: new Date(),
-            locked: false,
-          },
-        });
-      }
-
-      // 4) USER: เริ่มได้ครั้งเดียว (ถ้าตั้ง startedAt เป็น null ตอนปลดล็อค)
-      if (role === "USER" && !state.locked && !state.startedAt) {
-        state = await prisma.examState.update({
-          where: { id: state.id },
-          data: { startedAt: new Date() },
-        });
-      }
     }
   }
 

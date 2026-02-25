@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { getNickFromCookie, isNickAdmin, getOrCreateUserByNick } from "@/lib/auth";
 
 const FORM_ID = "mrich-assessment-v1";
 
@@ -9,18 +9,19 @@ function newAttemptToken() {
 }
 
 export async function POST(req: Request) {
-  const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
-  if (!token?.email) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if ((token as any).role !== "ADMIN") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const adminNick = await getNickFromCookie();
+  if (!adminNick) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!isNickAdmin(adminNick)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const email = String(body?.email ?? "").trim().toLowerCase();
-  if (!email) return NextResponse.json({ error: "missing email" }, { status: 400 });
+  const nickname = String(body?.nickname ?? "").trim().toLowerCase();
 
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, role: true } });
-  if (!user) return NextResponse.json({ error: "user not found" }, { status: 404 });
+  if (!nickname || !/^[a-z]+$/.test(nickname)) {
+    return NextResponse.json({ error: "invalid nickname" }, { status: 400 });
+  }
 
-  // ปลดล็อค: reset รอบใหม่ -> startedAt=null (จะเริ่มใหม่เมื่อ user เข้า /api/exam/state อีกครั้ง)
+  const user = await getOrCreateUserByNick(nickname);
+
   await prisma.examState.upsert({
     where: { userId_formId: { userId: user.id, formId: FORM_ID } },
     create: {
@@ -37,5 +38,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ ok: true, email });
+  return NextResponse.json({ ok: true, nickname });
 }

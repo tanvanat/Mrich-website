@@ -1,28 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
-
-// Import questions จาก lib (ปรับ path ถ้าจำเป็น)
 import { questions } from "@/lib/questions";
 
-// Extend NextAuth types เพื่อให้มี role
-declare module "next-auth" {
-  interface Session {
-    user: {
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-      role?: "USER" | "ADMIN" | null;
-    };
-  }
-
-  interface User {
-    role?: "USER" | "ADMIN" | null;
-  }
-}
-
-// Types
 type Row = {
   id: string;
   createdAt: string;
@@ -37,31 +17,37 @@ type Row = {
 
 type AdminApi = {
   responses: Row[];
+  // ✅ เปลี่ยน key เป็น nickname (lowercase)
   stateMap: Record<
     string,
     { role: "USER" | "ADMIN"; locked: boolean; startedAt: string | null; updatedAt: string }
   >;
 };
 
+type ExamStateResp = {
+  role: "ADMIN" | "USER";
+  locked: boolean;
+  startedAt: string | null;
+  expiresAt: string | null;
+  expired: boolean;
+  attemptToken?: string;
+};
+
 // คะแนนเต็มแต่ละข้อ (30 ข้อ รวม 100)
 const MAX_SCORES = [
-  2, 9, 9, 2, 2, 2, 4, 4, 4, 2, 2, 2, 6, 2, 4, // 1-15
-  5, 2, 2, 9, 2, 4, 3, 2, 2, 2, 3, 2, 2, 2, 2, // 16-30
+  2, 9, 9, 2, 2, 2, 4, 4, 4, 2, 2, 2, 6, 2, 4,
+  5, 2, 2, 9, 2, 4, 3, 2, 2, 2, 3, 2, 2, 2, 2,
 ] as const;
 
-const TOTAL_MAX = MAX_SCORES.reduce((sum, v) => sum + v, 0); // 100
+const TOTAL_MAX = MAX_SCORES.reduce((sum, v) => sum + v, 0);
 
-// Helpers
 function fmt(dt: any) {
   if (!dt) return "—";
-  return new Date(dt).toLocaleString("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return new Date(dt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
 }
 
 async function fetchJson<T = any>(url: string): Promise<{ res: Response; json: T | null }> {
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", credentials: "include" });
   let json: T | null = null;
   try {
     json = await res.json();
@@ -74,10 +60,32 @@ function normalizeAnswers(answersJson: any): string[] {
   return Array.isArray(raw) ? raw.map((a: any) => String(a ?? "").trim()) : [];
 }
 
-// Main Component
+function getCookie(name: string) {
+  const m = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+  return m ? decodeURIComponent(m[2]) : null;
+}
+
+function normalizeNick(v: string) {
+  return (v || "").trim().toLowerCase();
+}
+
+function getRowNick(r: Row) {
+  // ✅ ใช้ user.name เป็น nickname หลัก (เราตั้งชื่อ user เป็น nick)
+  const n = normalizeNick(r.user?.name ?? "");
+  if (n) return n;
+
+  // fallback: email fake (nick@mrich.local)
+  const e = normalizeNick(r.user?.email ?? "");
+  if (e.endsWith("@mrich.local")) return e.replace("@mrich.local", "");
+
+  return "unknown";
+}
+
 export default function AdminExamsPage() {
-  const { status, data: session } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
+  const myNick = normalizeNick(getCookie("mrich_nick") || "");
+  const [role, setRole] = useState<"ADMIN" | "USER" | null>(null);
+
+  const isAdmin = role === "ADMIN";
 
   const [data, setData] = useState<AdminApi | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,10 +95,26 @@ export default function AdminExamsPage() {
   const [scores, setScores] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // ✅ เช็ค role จาก /api/exam/state (cookie auth)
+  useEffect(() => {
+    if (!myNick) {
+      window.location.href = "/signin";
+      return;
+    }
+    fetch("/api/exam/state", { cache: "no-store", credentials: "include" })
+      .then((r) => r.json())
+      .then((s: ExamStateResp) => setRole(s?.role ?? "USER"))
+      .catch(() => setRole("USER"));
+  }, [myNick]);
+
   async function load() {
     setLoading(true);
     try {
-      const { json } = await fetchJson<AdminApi>("/api/admin/attempts");
+      const { res, json } = await fetchJson<AdminApi>("/api/admin/attempts");
+      if (!res.ok) {
+        console.error("Load attempts failed:", json);
+        return;
+      }
       if (json) setData(json);
     } catch (err) {
       console.error("Load failed:", err);
@@ -100,8 +124,8 @@ export default function AdminExamsPage() {
   }
 
   useEffect(() => {
-    if (status === "authenticated") load();
-  }, [status]);
+    if (isAdmin) load();
+  }, [isAdmin]);
 
   // โหลดคะแนนเดิมหรือเริ่มต้น 0 เมื่อเปิด modal
   useEffect(() => {
@@ -114,24 +138,25 @@ export default function AdminExamsPage() {
     setScores(initial);
   }, [openRow]);
 
-  async function unlock(email: string) {
-    const e = email.trim().toLowerCase();
-    if (!e) return;
+  async function unlockUser(nickname: string) {
+    const nick = normalizeNick(nickname);
+    if (!nick) return;
 
-    setUnlocking(e);
+    setUnlocking(nick);
     try {
       const res = await fetch("/api/admin/unlock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: e }),
+        credentials: "include",
+        body: JSON.stringify({ nickname: nick }),
       });
+      const err = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         alert(`ปลดล็อคไม่สำเร็จ: ${err?.error ?? "unknown"}`);
         return;
       }
       await load();
-      alert(`ปลดล็อคแล้ว: ${e}`);
+      alert(`ปลดล็อคแล้ว: ${nick}`);
     } finally {
       setUnlocking(null);
     }
@@ -145,17 +170,17 @@ export default function AdminExamsPage() {
       const res = await fetch("/api/admin/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           responseId: openRow.id,
-          userEmail: openRow.user?.email,
           scores,
           total: scores.reduce((a, b) => a + b, 0),
           maxTotal: TOTAL_MAX,
         }),
       });
 
+      const err = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
         alert(`บันทึกไม่สำเร็จ: ${err?.error ?? "unknown"}`);
         return;
       }
@@ -173,36 +198,44 @@ export default function AdminExamsPage() {
   const rows = useMemo(() => {
     const responses = data?.responses ?? [];
 
-    // หา latest response ต่อ email
-    const latestByEmail = new Map<string, Row>();
+    // หา latest response ต่อ nickname
+    const latestByNick = new Map<string, Row>();
 
     responses.forEach((r) => {
-      const email = (r.user?.email ?? "").trim().toLowerCase();
-      if (!email) return;
+      const nick = getRowNick(r);
+      if (!nick || nick === "unknown") return;
 
-      const prev = latestByEmail.get(email);
+      const prev = latestByNick.get(nick);
       if (!prev || new Date(r.createdAt).getTime() > new Date(prev.createdAt).getTime()) {
-        latestByEmail.set(email, r);
+        latestByNick.set(nick, r);
       }
     });
 
-    // แปลง Map เป็น array + sort ตามเวลาล่าสุด
-    let result = Array.from(latestByEmail.values()).sort(
+    let result = Array.from(latestByNick.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    // กรองตาม query
-    const q = query.trim().toLowerCase();
+    const q = normalizeNick(query);
     if (q) {
-      result = result.filter((r) => (r.user?.email ?? "").toLowerCase().includes(q));
+      result = result.filter((r) => getRowNick(r).includes(q));
     }
 
     return result;
   }, [data, query]);
 
+  if (!myNick) return null;
+
+  // ✅ ถ้าไม่ใช่ admin ให้แจ้ง/กันไว้
+  if (role && role !== "ADMIN") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 px-6">
+        คุณไม่มีสิทธิ์เข้าหน้านี้
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-20">
-      {/* Header */}
       <div className="relative max-w-6xl mx-auto px-6 py-10">
         <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-blue-500/20 p-6 shadow-2xl mb-8">
           <div className="flex justify-between items-center flex-wrap gap-4">
@@ -221,18 +254,17 @@ export default function AdminExamsPage() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหาด้วยอีเมล..."
+            placeholder="ค้นหาด้วย nickname..."
             className="mt-4 w-full px-4 py-3 rounded-xl bg-black/40 border border-blue-500/30 text-white placeholder-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        {/* Table */}
         <div className="rounded-2xl overflow-hidden border border-blue-500/20 bg-white/5 backdrop-blur-xl shadow-2xl">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-black/50">
                 <tr>
-                  <th className="p-4 text-left">อีเมล / ชื่อ</th>
+                  <th className="p-4 text-left">Nickname</th>
                   <th className="p-4 text-left">ส่งเมื่อ</th>
                   <th className="p-4 text-left">สถานะ</th>
                   <th className="p-4 text-left">การจัดการ</th>
@@ -240,14 +272,14 @@ export default function AdminExamsPage() {
               </thead>
               <tbody>
                 {rows.map((r) => {
-                  const email = (r.user?.email ?? "").toLowerCase();
-                  const locked = data?.stateMap?.[email]?.locked ?? false;
+                  const nick = getRowNick(r);
+                  const locked = data?.stateMap?.[nick]?.locked ?? false;
 
                   return (
                     <tr key={r.id} className="border-t border-blue-500/10 hover:bg-white/5">
                       <td className="p-4">
-                        <div className="font-medium">{r.user?.email ?? "—"}</div>
-                        <div className="text-xs text-blue-300">{r.user?.name ?? ""}</div>
+                        <div className="font-medium">{nick}</div>
+                        <div className="text-xs text-blue-300">{r.user?.role ?? "USER"}</div>
                       </td>
                       <td className="p-4">{fmt(r.createdAt)}</td>
                       <td className="p-4">
@@ -266,9 +298,11 @@ export default function AdminExamsPage() {
                         >
                           ดู & ให้คะแนน
                         </button>
+
+                        {/* ✅ ปลดล็อคได้เฉพาะ user (ไม่ใช่ admin) + ตอน locked */}
                         {isAdmin && locked && r.user?.role !== "ADMIN" && (
                           <button
-                            onClick={() => unlock(email)}
+                            onClick={() => unlockUser(nick)}
                             disabled={!!unlocking}
                             className={`px-4 py-2 rounded-full ${
                               unlocking ? "bg-gray-600 cursor-wait" : "bg-emerald-600 hover:bg-emerald-500"
@@ -281,6 +315,7 @@ export default function AdminExamsPage() {
                     </tr>
                   );
                 })}
+
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={4} className="p-10 text-center text-blue-300">
@@ -307,11 +342,9 @@ export default function AdminExamsPage() {
             <div className="p-6 border-b border-blue-500/20 flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  ให้คะแนน — {openRow.user?.email ?? "—"}
+                  ให้คะแนน — {getRowNick(openRow)}
                 </h2>
-                <p className="text-blue-300 mt-1">
-                  ส่งเมื่อ: {fmt(openRow.createdAt)}
-                </p>
+                <p className="text-blue-300 mt-1">ส่งเมื่อ: {fmt(openRow.createdAt)}</p>
               </div>
               <button className="text-4xl text-blue-300 hover:text-white" onClick={() => setOpenRow(null)}>
                 ×
@@ -325,24 +358,19 @@ export default function AdminExamsPage() {
 
                 return (
                   <div key={i} className="p-5 rounded-xl bg-black/50 border border-blue-600/30">
-                    {/* คำถาม */}
                     <div className="mb-4">
                       <div className="text-blue-100/90 leading-relaxed whitespace-pre-wrap border-l-4 border-blue-500/60 pl-4 py-2 bg-slate-900/30">
                         {questionText}
                       </div>
                     </div>
 
-                    {/* คำตอบ */}
                     <div className="mb-4">
-                      <div className="text-sm uppercase text-blue-400/80 mb-1 font-medium">
-                        คำตอบของผู้ใช้
-                      </div>
+                      <div className="text-sm uppercase text-blue-400/80 mb-1 font-medium">คำตอบของผู้ใช้</div>
                       <div className="whitespace-pre-wrap text-blue-50 leading-relaxed bg-slate-900/60 p-4 rounded border border-slate-700/50">
                         {ans || "— ไม่มีคำตอบ —"}
                       </div>
                     </div>
 
-                    {/* ให้คะแนน */}
                     <div className="flex items-center gap-4">
                       <label className="text-blue-200 font-medium min-w-[80px]">ให้คะแนน:</label>
                       <input
@@ -371,18 +399,13 @@ export default function AdminExamsPage() {
               <div className="flex flex-wrap justify-between items-center gap-6 text-xl font-bold text-white">
                 <div>
                   รวมคะแนน:{" "}
-                  <span className="text-3xl text-cyan-300 ml-2">
-                    {scores.reduce((a, b) => a + b, 0)}
-                  </span>
+                  <span className="text-3xl text-cyan-300 ml-2">{scores.reduce((a, b) => a + b, 0)}</span>
                   <span className="text-cyan-400 ml-1">/ {TOTAL_MAX}</span>
                 </div>
                 <div>
                   เปอร์เซ็นต์:{" "}
                   <span className="text-3xl text-cyan-300 ml-2">
-                    {TOTAL_MAX > 0
-                      ? Math.round((scores.reduce((a, b) => a + b, 0) / TOTAL_MAX) * 100)
-                      : 0}
-                    %
+                    {TOTAL_MAX > 0 ? Math.round((scores.reduce((a, b) => a + b, 0) / TOTAL_MAX) * 100) : 0}%
                   </span>
                 </div>
               </div>
