@@ -1,36 +1,26 @@
 import { NextResponse } from "next/server";
-
-function normalizeNick(v: string) {
-  return (v || "").trim().toLowerCase().replace(/[^a-z]/g, "");
-}
+import { getOrCreateUserByNick } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
-  const nick = normalizeNick(String(body?.nickname ?? ""));
+  const nickname = String(body?.nickname ?? "").trim().toLowerCase().replace(/[^a-z]/g, "");
 
-  if (!nick || !/^[a-z]+$/.test(nick)) {
-    return NextResponse.json({ error: "invalid nickname" }, { status: 400 });
+  if (!nickname) {
+    return NextResponse.json({ error: "missing nickname" }, { status: 400 });
   }
 
-  const res = NextResponse.json({ ok: true, nick });
+  // สร้าง/อัปเดต user role ตาม ADMIN_NAMES
+  await getOrCreateUserByNick(nickname);
 
-  // ✅ สำคัญ: ต้อง path="/" ไม่งั้นบางทีไปหน้าอื่นแล้ว cookie มองไม่เห็น
-  res.cookies.set("mrich_nick", nick, {
-    httpOnly: true,
+  const res = NextResponse.json({ ok: true, nickname });
+
+  res.cookies.set("mrich_nick", nickname, {
+    path: "/",
+    httpOnly: true,          // middleware อ่านได้
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/",
     maxAge: 60 * 60 * 24 * 30, // 30 วัน
   });
 
-  return res;
-}
-
-export async function DELETE() {
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set("mrich_nick", "", {
-    path: "/",
-    maxAge: 0,
-  });
   return res;
 }

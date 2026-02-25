@@ -9,8 +9,8 @@ function normalizeNick(v: string) {
 }
 
 export default function SignInClient() {
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/home";
+  const sp = useSearchParams();
+  const callbackUrl = sp.get("callbackUrl") || "/home";
 
   const [nick, setNick] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,6 +26,8 @@ export default function SignInClient() {
     setError(null);
 
     const cleaned = normalizeNick(nick);
+    console.log("[signin] submit clicked, cleaned =", cleaned, "callbackUrl=", callbackUrl);
+
     if (!cleaned || !/^[a-z]+$/.test(cleaned)) {
       setError("กรุณากรอกชื่อเล่นเป็นภาษาอังกฤษเท่านั้น (a-z)");
       return;
@@ -33,21 +35,27 @@ export default function SignInClient() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/nick", {
+      const res = await fetch("/api/auth/nick", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nickname: cleaned }),
+        cache: "no-store",
       });
 
+      console.log("[signin] /api/auth/nick status =", res.status);
+
       const data = await res.json().catch(() => ({}));
+      console.log("[signin] response =", data);
+
       if (!res.ok) {
         setError(data?.error || "เข้าสู่ระบบไม่สำเร็จ");
         return;
       }
 
-      // ✅ สำคัญ: reload เพื่อให้ middleware เห็น cookie แน่ๆ
+      // ✅ สำคัญ: full reload เพื่อให้ middleware เห็น cookie ชัวร์
       window.location.href = callbackUrl;
-    } catch {
+    } catch (err) {
+      console.error("[signin] fetch error", err);
       setError("เชื่อมต่อไม่ได้ กรุณาลองใหม่");
     } finally {
       setLoading(false);
@@ -63,10 +71,7 @@ export default function SignInClient() {
 
         <p className="text-sm text-blue-200/80 mb-6">
           (ใช้ชื่อเล่นภาษาอังกฤษเท่านั้น){" "}
-          <Link
-            href="/"
-            className="text-blue-200 underline underline-offset-4 hover:text-white"
-          >
+          <Link href="/" className="text-blue-200 underline underline-offset-4 hover:text-white">
             กลับหน้าแรก
           </Link>
         </p>
@@ -92,9 +97,7 @@ export default function SignInClient() {
             type="submit"
             disabled={loading}
             className={`w-full h-12 rounded-full font-semibold transition ${
-              loading
-                ? "bg-gray-700/50 cursor-wait"
-                : "bg-blue-600 hover:bg-blue-500 active:scale-95"
+              loading ? "bg-gray-700/50 cursor-wait" : "bg-blue-600 hover:bg-blue-500 active:scale-95"
             }`}
           >
             {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
