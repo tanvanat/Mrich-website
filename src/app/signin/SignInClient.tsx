@@ -1,32 +1,31 @@
-// src/app/signin/SignInClient.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+function normalizeNick(v: string) {
+  return (v || "").trim().toLowerCase().replace(/[^a-z]/g, "");
+}
+
 export default function SignInClient() {
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/home";
 
   const [nick, setNick] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // รองรับ callbackUrl จาก middleware (ถ้ามี)
-  const callbackUrl = searchParams.get("callbackUrl") || "/home";
-
   const onChangeNick = (v: string) => {
-    // บังคับ a-z และ lower case
-    const cleaned = v.toLowerCase().replace(/[^a-z]/g, "");
-    setNick(cleaned);
+    setNick(normalizeNick(v));
+    setError(null);
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    const cleaned = nick.trim().toLowerCase().replace(/[^a-z]/g, "");
+    const cleaned = normalizeNick(nick);
     if (!cleaned || !/^[a-z]+$/.test(cleaned)) {
       setError("กรุณากรอกชื่อเล่นเป็นภาษาอังกฤษเท่านั้น (a-z)");
       return;
@@ -34,7 +33,7 @@ export default function SignInClient() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/nick", {
+      const res = await fetch("/api/nick", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nickname: cleaned }),
@@ -46,8 +45,9 @@ export default function SignInClient() {
         return;
       }
 
-      router.push(callbackUrl);
-    } catch (err) {
+      // ✅ สำคัญ: reload เพื่อให้ middleware เห็น cookie แน่ๆ
+      window.location.href = callbackUrl;
+    } catch {
       setError("เชื่อมต่อไม่ได้ กรุณาลองใหม่");
     } finally {
       setLoading(false);
@@ -63,7 +63,10 @@ export default function SignInClient() {
 
         <p className="text-sm text-blue-200/80 mb-6">
           (ใช้ชื่อเล่นภาษาอังกฤษเท่านั้น){" "}
-          <Link href="/" className="text-blue-200 underline underline-offset-4 hover:text-white">
+          <Link
+            href="/"
+            className="text-blue-200 underline underline-offset-4 hover:text-white"
+          >
             กลับหน้าแรก
           </Link>
         </p>
@@ -81,6 +84,7 @@ export default function SignInClient() {
             onChange={(e) => onChangeNick(e.target.value)}
             placeholder="e.g. front"
             maxLength={16}
+            autoComplete="off"
             className="w-full h-12 px-4 rounded-xl bg-white/10 border border-blue-300/30 text-white placeholder-blue-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
           />
 
@@ -88,7 +92,9 @@ export default function SignInClient() {
             type="submit"
             disabled={loading}
             className={`w-full h-12 rounded-full font-semibold transition ${
-              loading ? "bg-gray-700/50 cursor-wait" : "bg-blue-600 hover:bg-blue-500 active:scale-95"
+              loading
+                ? "bg-gray-700/50 cursor-wait"
+                : "bg-blue-600 hover:bg-blue-500 active:scale-95"
             }`}
           >
             {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
