@@ -1,10 +1,7 @@
+// src/app/admin/exam/page.tsx
 "use client";
 
-import dynamic from "next/dynamic";
-
-const AdminExamClient = dynamic(() => import("./AdminExamClient"), {
-  ssr: false,
-});
+import AdminExamClient from "./AdminExamClient";
 
 export default function Page() {
   return <AdminExamClient />;

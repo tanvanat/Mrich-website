@@ -110,7 +110,10 @@ export default function FormClient() {
   }, []);
 
   async function loadState() {
-    const res = await fetch("/api/exam/state", { cache: "no-store" });
+    const res = await fetch("/api/exam/state", {
+      cache: "no-store",
+      credentials: "include", // ✅ ส่ง cookie
+    });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       console.error("loadState failed:", data);
@@ -119,7 +122,6 @@ export default function FormClient() {
     setState(data as ExamStateResp);
   }
 
-  // ✅ ไม่มี next-auth แล้ว -> แค่โหลด state เลย
   useEffect(() => {
     loadState();
   }, []);
@@ -181,6 +183,7 @@ export default function FormClient() {
       const res = await fetch("/api/exam/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // ✅ ส่ง cookie
         body: JSON.stringify({
           answers,
           attemptToken: state?.attemptToken,
@@ -203,7 +206,6 @@ export default function FormClient() {
       if (!opts?.silent) showToast("success", "ส่งคำตอบเรียบร้อยแล้ว ✅", 3000);
       else showToast("info", "หมดเวลาแล้ว ระบบส่งคำตอบให้อัตโนมัติ ✅", 3500);
 
-      // ✅ ห้ามใช้ document ตอน SSR -> (เราเป็น client อยู่แล้ว แต่กันไว้ชัวร์)
       if (typeof window !== "undefined") {
         setTimeout(() => {
           window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
@@ -219,21 +221,39 @@ export default function FormClient() {
 
   // auto submit เมื่อหมดเวลา (ถ้ามีคำตอบ)
   useEffect(() => {
-    if (
-      isExpired &&
-      !loading &&
-      submitOk === undefined &&
-      answers.some((v) => v.trim().length > 0)
-    ) {
+    if (isExpired && !loading && submitOk === undefined && answers.some((v) => v.trim().length > 0)) {
       submit({ silent: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpired, loading, submitOk, answers]);
 
+  // ✅ FIX: reset timer แบบ ADMIN ด้วย POST + เช็ค res.ok
   async function adminResetTimer() {
     if (state?.role !== "ADMIN") return;
-    await fetch("/api/exam/state?reset=1", { cache: "no-store" });
-    if (typeof window !== "undefined") window.location.reload();
+
+    try {
+      setLoading(true);
+      const res = await fetch("/api/exam/reset", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}), // เผื่อขยายในอนาคต
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        showToast("error", data?.error || "รีเซ็ตเวลาไม่สำเร็จ", 4000);
+        return;
+      }
+
+      showToast("success", "รีเซ็ตเวลาใหม่แล้ว ✅", 2500);
+      await loadState();
+
+      // ถ้าอยากชัวร์สุด
+      // window.location.reload();
+    } finally {
+      setLoading(false);
+    }
   }
 
   const answeredCount = answers.filter((a) => a.trim().length > 0).length;
@@ -276,20 +296,12 @@ export default function FormClient() {
     toast?.type === "success"
       ? "bg-emerald-500/15 border-emerald-300/25 text-emerald-100"
       : toast?.type === "error"
-        ? "bg-red-500/15 border-red-300/25 text-red-100"
-        : "bg-blue-500/15 border-blue-300/25 text-blue-100";
+      ? "bg-red-500/15 border-red-300/25 text-red-100"
+      : "bg-blue-500/15 border-blue-300/25 text-blue-100";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-24">
       <style jsx global>{`
-        @keyframes flowerFloat {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-18px) rotate(4deg); }
-        }
-        @keyframes flowerGlow {
-          0%, 100% { filter: drop-shadow(0 0 8px rgba(96,165,250,0.35)); }
-          50% { filter: drop-shadow(0 0 18px rgba(96,165,250,0.75)); }
-        }
         @keyframes casper-appear-fade {
           0% { transform: translateX(120%) translateY(0) scale(0.8); opacity: 0; }
           15% { transform: translateX(0) translateY(-20px) scale(1); opacity: 1; }
@@ -308,7 +320,9 @@ export default function FormClient() {
 
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4">
-          <div className={`max-w-[92vw] sm:max-w-[560px] rounded-2xl border backdrop-blur-xl shadow-2xl px-4 py-3 text-sm font-semibold ${toastBg}`}>
+          <div
+            className={`max-w-[92vw] sm:max-w-[560px] rounded-2xl border backdrop-blur-xl shadow-2xl px-4 py-3 text-sm font-semibold ${toastBg}`}
+          >
             <div className="flex items-start gap-3">
               <div className="flex-1">{toast.message}</div>
               <button

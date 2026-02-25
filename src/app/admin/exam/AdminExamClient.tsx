@@ -21,6 +21,10 @@ type AdminApi = {
   stateMap: Record<string, { role: "USER" | "ADMIN"; locked: boolean; startedAt: string | null; updatedAt: string }>;
 };
 
+type MeResp =
+  | { authed: true; nick: string; role: "ADMIN" | "USER" }
+  | { authed: false };
+
 const MAX_SCORES = [
   2, 9, 9, 2, 2, 2, 4, 4, 4, 2, 2, 2, 6, 2, 4,
   5, 2, 2, 9, 2, 4, 3, 2, 2, 2, 3, 2, 2, 2, 2,
@@ -34,9 +38,11 @@ function fmt(dt: any) {
 }
 
 async function fetchJson<T = any>(url: string): Promise<{ res: Response; json: T | null }> {
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", credentials: "include" });
   let json: T | null = null;
-  try { json = await res.json(); } catch {}
+  try {
+    json = await res.json();
+  } catch {}
   return { res, json };
 }
 
@@ -45,7 +51,13 @@ function normalizeAnswers(answersJson: any): string[] {
   return Array.isArray(raw) ? raw.map((a: any) => String(a ?? "").trim()) : [];
 }
 
+function normalizeNick(v: string) {
+  return (v || "").trim().toLowerCase().replace(/[^a-z]/g, "");
+}
+
 export default function AdminExamClient() {
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const [data, setData] = useState<AdminApi | null>(null);
   const [loading, setLoading] = useState(false);
   const [unlocking, setUnlocking] = useState<string | null>(null);
@@ -53,6 +65,14 @@ export default function AdminExamClient() {
   const [openRow, setOpenRow] = useState<Row | null>(null);
   const [scores, setScores] = useState<number[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // ✅ เช็คสิทธิ์ admin จาก backend (cookie -> role)
+  useEffect(() => {
+    fetch("/api/auth/me", { cache: "no-store", credentials: "include" })
+      .then((r) => (r.ok ? r.json() : ({ authed: false } as MeResp)))
+      .then((me: MeResp) => setIsAdmin((me as any)?.authed === true && (me as any).role === "ADMIN"))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -82,7 +102,7 @@ export default function AdminExamClient() {
   }, [openRow]);
 
   async function unlockByNickname(nickname: string) {
-    const nick = nickname.trim().toLowerCase();
+    const nick = normalizeNick(nickname);
     if (!nick) return;
 
     setUnlocking(nick);
@@ -90,12 +110,13 @@ export default function AdminExamClient() {
       const res = await fetch("/api/admin/unlock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ nickname: nick }),
       });
-      const data = await res.json().catch(() => ({}));
+      const out = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        alert(`ปลดล็อคไม่สำเร็จ: ${data?.error ?? "unknown"}`);
+        alert(`ปลดล็อคไม่สำเร็จ: ${out?.error ?? "unknown"}`);
         return;
       }
 
@@ -114,6 +135,7 @@ export default function AdminExamClient() {
       const res = await fetch("/api/admin/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           responseId: openRow.id,
           scores,
@@ -122,9 +144,9 @@ export default function AdminExamClient() {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const out = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(`บันทึกไม่สำเร็จ: ${data?.error ?? "unknown"}`);
+        alert(`บันทึกไม่สำเร็จ: ${out?.error ?? "unknown"}`);
         return;
       }
 
@@ -165,15 +187,22 @@ export default function AdminExamClient() {
         <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-blue-500/20 p-6 shadow-2xl mb-8">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <h1 className="text-3xl font-bold">Admin — Exam Scoring</h1>
-            <button
-              onClick={load}
-              disabled={loading}
-              className={`px-6 py-2 rounded-full font-medium ${
-                loading ? "bg-gray-600 cursor-wait" : "bg-blue-600 hover:bg-blue-500"
-              } text-white transition`}
-            >
-              {loading ? "กำลังโหลด..." : "รีเฟรช"}
-            </button>
+
+            <div className="flex items-center gap-3">
+              <span className={`text-xs px-3 py-1 rounded-full ${isAdmin ? "bg-emerald-900/50 text-emerald-200" : "bg-rose-900/50 text-rose-200"}`}>
+                {isAdmin ? "ADMIN" : "NOT ADMIN"}
+              </span>
+
+              <button
+                onClick={load}
+                disabled={loading}
+                className={`px-6 py-2 rounded-full font-medium ${
+                  loading ? "bg-gray-600 cursor-wait" : "bg-blue-600 hover:bg-blue-500"
+                } text-white transition`}
+              >
+                {loading ? "กำลังโหลด..." : "รีเฟรช"}
+              </button>
+            </div>
           </div>
 
           <input
@@ -199,6 +228,12 @@ export default function AdminExamClient() {
                 {rows.map((r) => {
                   const email = (r.user?.email ?? "").toLowerCase();
                   const locked = data?.stateMap?.[email]?.locked ?? false;
+                  const role = data?.stateMap?.[email]?.role ?? r.user?.role ?? "USER";
+
+                  // nickname ของ user ในระบบคุณ = user.name (ตอน create user by nick คุณตั้ง name = nick)
+                  const nickname = normalizeNick(r.user?.name ?? "");
+
+                  const showUnlock = isAdmin && locked && role !== "ADMIN" && !!nickname;
 
                   return (
                     <tr key={r.id} className="border-t border-blue-500/10 hover:bg-white/5">
@@ -206,7 +241,9 @@ export default function AdminExamClient() {
                         <div className="font-medium">{r.user?.email ?? "—"}</div>
                         <div className="text-xs text-blue-300">{r.user?.name ?? ""}</div>
                       </td>
+
                       <td className="p-4">{fmt(r.createdAt)}</td>
+
                       <td className="p-4">
                         <span
                           className={`px-3 py-1 rounded-full text-xs ${
@@ -216,6 +253,7 @@ export default function AdminExamClient() {
                           {locked ? "LOCKED" : "OPEN"}
                         </span>
                       </td>
+
                       <td className="p-4 space-x-2">
                         <button
                           onClick={() => setOpenRow(r)}
@@ -224,8 +262,18 @@ export default function AdminExamClient() {
                           ดู & ให้คะแนน
                         </button>
 
-                        {/* ถ้าคุณอยากปลดด้วย nickname ให้ทำ UI แยกเอง หรือเปลี่ยนปุ่มนี้ให้รับ nickname */}
-                        {/* ตัวอย่าง: ปลดจาก email เดิมไม่ได้แล้ว ถ้าคุณเปลี่ยนระบบเป็น nickname */}
+                        {showUnlock && (
+                          <button
+                            onClick={() => unlockByNickname(nickname)}
+                            disabled={unlocking === nickname}
+                            className={`px-4 py-2 rounded-full text-white ${
+                              unlocking === nickname ? "bg-gray-600 cursor-wait" : "bg-emerald-600 hover:bg-emerald-500"
+                            }`}
+                            title={`unlock ${nickname}`}
+                          >
+                            {unlocking === nickname ? "กำลังปลด..." : "Unlock"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -245,7 +293,10 @@ export default function AdminExamClient() {
       </div>
 
       {openRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => setOpenRow(null)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+          onClick={() => setOpenRow(null)}
+        >
           <div
             className="relative w-full max-w-4xl bg-slate-950/95 backdrop-blur-xl rounded-2xl border border-blue-500/30 shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
@@ -320,7 +371,10 @@ export default function AdminExamClient() {
             </div>
 
             <div className="p-6 border-t border-blue-500/20 flex justify-end gap-4">
-              <button onClick={() => setOpenRow(null)} className="px-6 py-3 rounded-full bg-slate-700 hover:bg-slate-600 text-white transition">
+              <button
+                onClick={() => setOpenRow(null)}
+                className="px-6 py-3 rounded-full bg-slate-700 hover:bg-slate-600 text-white transition"
+              >
                 ปิด
               </button>
               <button
