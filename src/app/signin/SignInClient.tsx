@@ -69,13 +69,6 @@ export default function SignInClient() {
           เข้าสู่ระบบ
         </h1>
 
-        <p className="text-sm text-blue-200/80 mb-6">
-          (ใช้ชื่อเล่นภาษาอังกฤษเท่านั้น){" "}
-          <Link href="/" className="text-blue-200 underline underline-offset-4 hover:text-white">
-            กลับหน้าแรก
-          </Link>
-        </p>
-
         {error && (
           <div className="mt-2 mb-4 p-4 bg-red-500/20 border border-red-400/40 rounded-xl text-red-200 text-sm text-center">
             {error}
@@ -83,11 +76,11 @@ export default function SignInClient() {
         )}
 
         <form onSubmit={submit} className="space-y-4">
-          <label className="block text-sm text-blue-200">ชื่อเล่น (a-z)</label>
+          <label className="block text-sm text-blue-200">ชื่อเล่น (กรอกภาษาอังกฤษเท่านั้น)</label>
           <input
             value={nick}
             onChange={(e) => onChangeNick(e.target.value)}
-            placeholder="e.g. front"
+            placeholder="e.g. casper"
             maxLength={16}
             autoComplete="off"
             className="w-full h-12 px-4 rounded-xl bg-white/10 border border-blue-300/30 text-white placeholder-blue-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50"

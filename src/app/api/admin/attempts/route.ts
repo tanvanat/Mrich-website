@@ -1,14 +1,23 @@
+// src/app/api/admin/attempts/route.ts
 import { NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { getNickFromCookie, isNickAdmin } from "@/lib/auth";
+
+export const runtime = "nodejs"; // ✅ prisma ชัวร์ ไม่หลุด edge
 
 const FORM_ID = "mrich-assessment-v1";
 
-export async function GET(req: Request) {
-  const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
-  if (!token?.email) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if ((token as any).role !== "ADMIN") return NextResponse.json({ error: "forbidden" }, { status: 403 });
+export async function GET() {
+  // ✅ auth จาก cookie nick
+  const nick = await getNickFromCookie();
+  if (!nick) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!isNickAdmin(nick)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
 
+  // ✅ responses (เหมือนของเดิม)
   const responses = await prisma.response.findMany({
     where: { formId: FORM_ID },
     orderBy: { createdAt: "desc" },
@@ -26,6 +35,7 @@ export async function GET(req: Request) {
     },
   });
 
+  // ✅ states -> stateMap (เหมือนของเดิม)
   const states = await prisma.examState.findMany({
     where: { formId: FORM_ID },
     select: {
@@ -36,15 +46,19 @@ export async function GET(req: Request) {
     },
   });
 
-  const stateMap: Record<string, any> = {};
+  const stateMap: Record<
+    string,
+    { role: "USER" | "ADMIN"; locked: boolean; startedAt: string | null; updatedAt: string }
+  > = {};
+
   for (const s of states) {
-    const email = (s.user.email ?? "").toLowerCase();
+    const email = (s.user?.email ?? "").toLowerCase();
     if (!email) continue;
     stateMap[email] = {
       role: s.user.role,
       locked: s.locked,
-      startedAt: s.startedAt,
-      updatedAt: s.updatedAt,
+      startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : null,
+      updatedAt: new Date(s.updatedAt).toISOString(),
     };
   }
 

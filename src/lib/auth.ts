@@ -1,4 +1,3 @@
-// src/lib/auth.ts
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { User } from "@prisma/client";
@@ -8,20 +7,19 @@ export function normalizeNick(v: string) {
 }
 
 export async function getNickFromCookie(): Promise<string> {
-  // ✅ works with both async/sync cookies() typings
-  const cookieStore = await Promise.resolve(cookies());
+  const cookieStore = await cookies(); // ✅ Next 16 ต้อง await
   const nick = cookieStore.get("mrich_nick")?.value || "";
   return normalizeNick(nick);
 }
 
-export function getAdminNames() {
+export function getAdminNames(): string[] {
   return (process.env.ADMIN_NAMES || "")
     .split(",")
     .map((s) => normalizeNick(s))
     .filter(Boolean);
 }
 
-export function isNickAdmin(nick: string) {
+export function isNickAdmin(nick: string): boolean {
   return getAdminNames().includes(normalizeNick(nick));
 }
 
@@ -30,17 +28,20 @@ export async function getOrCreateUserByNick(nickRaw: string): Promise<User> {
   if (!nick) throw new Error("Missing nickname");
 
   const email = `${nick}@mrich.local`;
+  const wantRole = isNickAdmin(nick) ? "ADMIN" : "USER";
 
   let user = await prisma.user.findUnique({ where: { email } });
+
   if (!user) {
     user = await prisma.user.create({
-      data: { email, name: nick, role: isNickAdmin(nick) ? "ADMIN" : "USER" },
+      data: { email, name: nick, role: wantRole },
     });
-  } else {
-    const wantRole = isNickAdmin(nick) ? "ADMIN" : "USER";
-    if (user.role !== wantRole) {
-      user = await prisma.user.update({ where: { email }, data: { role: wantRole } });
-    }
+  } else if (user.role !== wantRole) {
+    user = await prisma.user.update({
+      where: { email },
+      data: { role: wantRole },
+    });
   }
+
   return user;
 }
