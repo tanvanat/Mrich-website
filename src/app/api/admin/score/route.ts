@@ -1,95 +1,63 @@
-// สำหรับ admin เท่านั้น บันทึก/อัปเดตคะแนน (POST) ในหน้า Admin Dashboard
-
+// src/app/api/admin/score/route.ts
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // ปรับ path ให้ตรงกับโปรเจกต์ของคุณ
 import { prisma } from "@/lib/prisma";
+import { getNickFromCookie, isNickAdmin } from "@/lib/auth";
 
-export async function POST(request: Request) {
-  // 1. ตรวจสอบ session และสิทธิ์ admin
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return NextResponse.json(
-      { error: "ต้องเป็น ADMIN เท่านั้น" },
-      { status: 403 }
-    );
+export async function POST(req: Request) {
+  // ✅ cookie-based admin check
+  const adminNick = await getNickFromCookie(); // <-- ต้อง await
+  if (!adminNick) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!isNickAdmin(adminNick)) {
+    return NextResponse.json({ error: "ต้องเป็น ADMIN เท่านั้น" }, { status: 403 });
   }
 
-  try {
-    // 2. อ่าน body
-    const body = await request.json();
-    const { responseId, userEmail, scores, total, maxTotal } = body;
+  const body = await req.json().catch(() => ({}));
 
-    // 3. Validate ข้อมูลที่จำเป็น
-    if (
-      !responseId ||
-      typeof responseId !== "string" ||
-      !userEmail ||
-      typeof userEmail !== "string" ||
-      !Array.isArray(scores) ||
-      typeof total !== "number" ||
-      typeof maxTotal !== "number"
-    ) {
-      return NextResponse.json(
-        { error: "ข้อมูลไม่ครบถ้วนหรือรูปแบบไม่ถูกต้อง" },
-        { status: 400 }
-      );
-    }
+  const responseId = String(body?.responseId ?? "").trim();
+  const scores: number[] = Array.isArray(body?.scores) ? body.scores : [];
+  const total = Number(body?.total);
+  const maxTotal = Number(body?.maxTotal);
 
-    // 4. หา response เดิมเพื่อ merge answersJson (ปลอดภัยกับ TypeScript)
-    const existingResponse = await prisma.response.findUnique({
-      where: { id: responseId },
-      select: { answersJson: true },
-    });
+  if (!responseId) {
+    return NextResponse.json({ error: "missing responseId" }, { status: 400 });
+  }
+  if (!Array.isArray(scores) || scores.some((x) => typeof x !== "number" || Number.isNaN(x))) {
+    return NextResponse.json({ error: "scores must be number[]" }, { status: 400 });
+  }
+  if (Number.isNaN(total) || Number.isNaN(maxTotal)) {
+    return NextResponse.json({ error: "missing total/maxTotal" }, { status: 400 });
+  }
 
-    if (!existingResponse) {
-      return NextResponse.json(
-        { error: "ไม่พบ Response ID นี้" },
-        { status: 404 }
-      );
-    }
+  const percent = maxTotal > 0 ? Math.round((total / maxTotal) * 100) : 0;
 
-    // 5. Merge answersJson อย่างปลอดภัย
-    const currentAnswersJson = existingResponse.answersJson
-      ? (existingResponse.answersJson as Record<string, any>)
+  // ✅ merge answersJson เดิมก่อน แล้วค่อยใส่ scores
+  const prev = await prisma.response.findUnique({
+    where: { id: responseId },
+    select: { answersJson: true },
+  });
+
+  const prevJson =
+    prev?.answersJson && typeof prev.answersJson === "object"
+      ? (prev.answersJson as any)
       : {};
 
-    const updatedAnswersJson = {
-      ...currentAnswersJson,
-      scores, // เพิ่ม/อัปเดต field scores
-    };
+  const updated = await prisma.response.update({
+    where: { id: responseId },
+    data: {
+      totalScore: total,
+      maxScore: maxTotal,
+      percent,
+      answersJson: {
+        ...prevJson,
+        scores,
+        _gradedBy: adminNick,
+        _gradedAt: new Date().toISOString(),
+      } as any,
+    },
+    select: { id: true, totalScore: true, maxScore: true, percent: true, updatedAt: true },
+  });
 
-    // 6. อัปเดตในฐานข้อมูล
-    const updated = await prisma.response.update({
-      where: { id: responseId },
-      data: {
-        totalScore: total,
-        maxScore: maxTotal,
-        percent: maxTotal > 0 ? Math.round((total / maxTotal) * 100) : 0,
-        answersJson: updatedAnswersJson,
-        // updatedAt จะอัตโนมัติถ้ามี @updatedAt ใน schema
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      updated: {
-        id: updated.id,
-        totalScore: updated.totalScore,
-        maxScore: updated.maxScore,
-        percent: updated.percent,
-      },
-    });
-  } catch (error) {
-    console.error("Admin save score error:", error);
-
-    const errorMessage =
-      error instanceof Error ? error.message : "เกิดข้อผิดพลาดในการบันทึก";
-
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ ok: true, updated });
 }
