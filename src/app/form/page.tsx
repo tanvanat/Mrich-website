@@ -1,7 +1,9 @@
 // src/app/form/page.tsx
-import dynamic from "next/dynamic";
+"use client";
 
-const FormClient = dynamic(() => import("./FormClient"), { ssr: false });
+export const dynamic = "force-dynamic";
+
+import FormClient from "./FormClient";
 
 export default function Page() {
   return <FormClient />;
