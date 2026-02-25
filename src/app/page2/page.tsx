@@ -7,10 +7,21 @@ export default function Page2() {
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Large flower top-right */}
         <div className="absolute -top-10 right-24 opacity-20 flower-will-change animate-[flowerFloat_6s_ease-in-out_infinite]">
-          <svg width="280" height="280" viewBox="0 0 100 100" className="animate-[flowerGlow_2.5s_ease-in-out_infinite]">
+          <svg
+            width="280"
+            height="280"
+            viewBox="0 0 100 100"
+            className="animate-[flowerGlow_2.5s_ease-in-out_infinite]"
+          >
             <g transform="translate(50,50)">
               {[0, 60, 120, 180, 240, 300].map((deg, i) => (
-                <ellipse key={i} rx="20" ry="35" fill="#3b82f6" transform={`rotate(${deg})`} />
+                <ellipse
+                  key={i}
+                  rx="20"
+                  ry="35"
+                  fill="#3b82f6"
+                  transform={`rotate(${deg})`}
+                />
               ))}
               <circle r="12" fill="#1e3a8a" />
               <circle r="7" fill="#93c5fd" />
@@ -23,7 +34,13 @@ export default function Page2() {
           <svg width="240" height="240" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[0, 72, 144, 216, 288].map((deg, i) => (
-                <ellipse key={i} rx="18" ry="30" fill="#60a5fa" transform={`rotate(${deg})`} />
+                <ellipse
+                  key={i}
+                  rx="18"
+                  ry="30"
+                  fill="#60a5fa"
+                  transform={`rotate(${deg})`}
+                />
               ))}
               <circle r="10" fill="#1e40af" />
               <circle r="6" fill="#bfdbfe" />
@@ -36,7 +53,13 @@ export default function Page2() {
           <svg width="120" height="120" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[0, 90, 180, 270].map((deg, i) => (
-                <ellipse key={i} rx="15" ry="25" fill="#7dd3fc" transform={`rotate(${deg})`} />
+                <ellipse
+                  key={i}
+                  rx="15"
+                  ry="25"
+                  fill="#7dd3fc"
+                  transform={`rotate(${deg})`}
+                />
               ))}
               <circle r="8" fill="#0e7490" />
             </g>
@@ -48,7 +71,13 @@ export default function Page2() {
           <svg width="110" height="110" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[30, 90, 150, 210, 270, 330].map((deg, i) => (
-                <ellipse key={i} rx="12" ry="22" fill="#a5f3fc" transform={`rotate(${deg})`} />
+                <ellipse
+                  key={i}
+                  rx="12"
+                  ry="22"
+                  fill="#a5f3fc"
+                  transform={`rotate(${deg})`}
+                />
               ))}
               <circle r="6" fill="#0e7490" />
             </g>
@@ -64,7 +93,8 @@ export default function Page2() {
           </h1>
           <p className="text-base sm:text-xl text-blue-200">
             สถาบัน "สร้างนิสัยผู้นำ" <br />
-            ที่ทำให้คุณมีความสุขเเละความสำเร็จ<br />
+            ที่ทำให้คุณมีความสุขเเละความสำเร็จ
+            <br />
             ทุกด้านของชีวิต
           </p>
         </div>
@@ -77,15 +107,6 @@ export default function Page2() {
           className="w-52 rounded-full transition-all duration-300 bg-[#FFCC3E] text-black hover:bg-yellow-400 text-sm sm:text-base h-11 sm:h-12 px-6 sm:px-8 flex items-center justify-center shadow-lg shadow-yellow-500/20 hover:scale-105"
         >
           Sign In
-        </Link>
-
-        <div className="text-sm sm:text-base text-blue-200/70">----------- OR ------------</div>
-
-        <Link
-          href="/signup"
-          className="w-52 rounded-full transition-all duration-300 border border-blue-200/70 bg-transparent text-white hover:bg-white hover:text-black text-sm sm:text-base h-11 sm:h-12 px-6 sm:px-8 flex items-center justify-center hover:scale-105"
-        >
-          Sign Up
         </Link>
       </div>
     </div>
