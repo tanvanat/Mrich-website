@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import type { User } from "@prisma/client";
 
 export function normalizeNick(v: string) {
-  return (v || "").trim().toLowerCase().replace(/[^a-z]/g, "");
+  return (v || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 export async function getNickFromCookie(): Promise<string> {

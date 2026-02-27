@@ -4,9 +4,9 @@ import { getOrCreateUserByNick, normalizeNick } from "@/lib/auth";
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const nicknameRaw = String(body?.nickname ?? "");
-  const nickname = normalizeNick(nicknameRaw).replace(/[^a-z]/g, "");
+  const nickname = normalizeNick(nicknameRaw).replace(/[^a-z0-9]/g, "");
 
-  if (!nickname || !/^[a-z]+$/.test(nickname)) {
+  if (!nickname || !/^[a-z0-9]+$/.test(nickname)) {
     return NextResponse.json({ error: "invalid nickname" }, { status: 400 });
   }
 

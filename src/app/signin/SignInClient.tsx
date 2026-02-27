@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 function normalizeNick(v: string) {
-  return (v || "").trim().toLowerCase().replace(/[^a-z]/g, "");
+  return (v || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  //                                                    ^^^ เพิ่ม 0-9
 }
 
 export default function SignInClient() {
@@ -28,7 +29,7 @@ export default function SignInClient() {
     const cleaned = normalizeNick(nick);
     console.log("[signin] submit clicked, cleaned =", cleaned, "callbackUrl=", callbackUrl);
 
-    if (!cleaned || !/^[a-z]+$/.test(cleaned)) {
+    if (!cleaned || !/^[a-z0-9]+$/.test(cleaned)) {
       setError("กรุณากรอกชื่อเล่นเป็นภาษาอังกฤษเท่านั้น (a-z)");
       return;
     }
