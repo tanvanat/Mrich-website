@@ -3,6 +3,20 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { normalizeNick } from "@/lib/auth";
 
+function getAllowedNicks(): string[] {
+  const admins = (process.env.ADMIN_NAMES || "")
+    .split(",")
+    .map((s) => normalizeNick(s))
+    .filter(Boolean);
+
+  const users = (process.env.USER_NAMES || "")
+    .split(",")
+    .map((s) => normalizeNick(s))
+    .filter(Boolean);
+
+  return [...admins, ...users];
+}
+
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const nickname = normalizeNick(String(body?.nickname ?? ""));
@@ -10,6 +24,12 @@ export async function POST(req: Request) {
 
   if (!nickname || !password) {
     return NextResponse.json({ error: "invalid input" }, { status: 400 });
+  }
+
+  // ✅ เช็คว่าชื่อนี้ได้รับอนุญาตหรือไม่
+  const allowed = getAllowedNicks();
+  if (!allowed.includes(nickname)) {
+    return NextResponse.json({ error: "ไม่มีสิทธิ์เข้าใช้งาน" }, { status: 403 });
   }
 
   const email = `${nickname}@mrich.local`;
