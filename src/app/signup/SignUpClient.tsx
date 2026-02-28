@@ -122,7 +122,7 @@ export default function SignUpClient() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm text-blue-200 mb-1">ชื่อเล่น (ภาษาอังกฤษ + ตัวเลขได้)</label>
+            <label className="block text-sm text-blue-200 mb-1">ชื่อเล่น (ภาษาอังกฤษ)</label>
             <input
               value={nick}
               onChange={(e) => setNick(normalizeNick(e.target.value))}
