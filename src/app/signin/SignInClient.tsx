@@ -6,7 +6,6 @@ import Link from "next/link";
 
 function normalizeNick(v: string) {
   return (v || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-  //                                                    ^^^ เพิ่ม 0-9
 }
 
 export default function SignInClient() {
@@ -14,23 +13,23 @@ export default function SignInClient() {
   const callbackUrl = sp.get("callbackUrl") || "/home";
 
   const [nick, setNick] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const onChangeNick = (v: string) => {
-    setNick(normalizeNick(v));
-    setError(null);
-  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     const cleaned = normalizeNick(nick);
-    console.log("[signin] submit clicked, cleaned =", cleaned, "callbackUrl=", callbackUrl);
 
-    if (!cleaned || !/^[a-z0-9]+$/.test(cleaned)) {
-      setError("กรุณากรอกชื่อเล่นเป็นภาษาอังกฤษเท่านั้น (a-z)");
+    if (!cleaned) {
+      setError("กรุณากรอกชื่อเล่น");
+      return;
+    }
+
+    if (!password) {
+      setError("กรุณากรอกรหัสผ่าน");
       return;
     }
 
@@ -39,7 +38,7 @@ export default function SignInClient() {
       const res = await fetch("/api/auth/nick", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: cleaned }),
+        body: JSON.stringify({ nickname: cleaned, password }),
         cache: "no-store",
       });
 
@@ -53,7 +52,6 @@ export default function SignInClient() {
         return;
       }
 
-      // ✅ สำคัญ: full reload เพื่อให้ middleware เห็น cookie ชัวร์
       window.location.href = callbackUrl;
     } catch (err) {
       console.error("[signin] fetch error", err);
@@ -77,21 +75,46 @@ export default function SignInClient() {
         )}
 
         <form onSubmit={submit} className="space-y-4">
-          <label className="block text-sm text-blue-200">ชื่อเล่น (กรอกภาษาอังกฤษเท่านั้น)</label>
-          <input
-            value={nick}
-            onChange={(e) => onChangeNick(e.target.value)}
-            placeholder="e.g. casper"
-            maxLength={16}
-            autoComplete="off"
-            className="w-full h-12 px-4 rounded-xl bg-white/10 border border-blue-300/30 text-white placeholder-blue-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
-          />
+          <div>
+            <label className="block text-sm text-blue-200 mb-1">
+              ชื่อเล่น (ภาษาอังกฤษเท่านั้น)
+            </label>
+            <input
+              value={nick}
+              onChange={(e) => setNick(normalizeNick(e.target.value))}
+              placeholder="e.g. casper"
+              maxLength={16}
+              autoComplete="off"
+              className="w-full h-12 px-4 rounded-xl bg-white/10 border border-blue-300/30 text-white placeholder-blue-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-blue-200 mb-1">
+              รหัสผ่าน (6 ตัว a-z, 0-9)
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) =>
+                setPassword(
+                  e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 6)
+                )
+              }
+              placeholder="xxxxxx"
+              maxLength={6}
+              autoComplete="current-password"
+              className="w-full h-12 px-4 rounded-xl bg-white/10 border border-blue-300/30 text-white placeholder-blue-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50"
+            />
+          </div>
 
           <button
             type="submit"
             disabled={loading}
             className={`w-full h-12 rounded-full font-semibold transition ${
-              loading ? "bg-gray-700/50 cursor-wait" : "bg-blue-600 hover:bg-blue-500 active:scale-95"
+              loading
+                ? "bg-gray-700/50 cursor-wait"
+                : "bg-blue-600 hover:bg-blue-500 active:scale-95"
             }`}
           >
             {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
@@ -100,6 +123,16 @@ export default function SignInClient() {
 
         <p className="text-xs text-blue-200/60 mt-8 text-center">
           การดำเนินการต่อแสดงว่าคุณยอมรับเงื่อนไขการใช้งานและนโยบายความเป็นส่วนตัวของเรา
+        </p>
+
+        <p className="text-sm text-blue-200/70 mt-4 text-center">
+          ยังไม่มีบัญชี?{" "}
+          <Link
+            href="/signup"
+            className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition"
+          >
+            ลงทะเบียนก่อน
+          </Link>
         </p>
       </div>
     </div>

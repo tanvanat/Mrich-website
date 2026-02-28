@@ -14,15 +14,23 @@ https://vercel.com/tanvanats-projects/multi-rich-academy/6eK3cEDpYTrLjUSSEGS8wvX
 
 https://console.neon.tech/app/projects/jolly-bread-00816733?database=neondb
 
-สิ่งที่ต้องเเก้ต่อ:
-2.ปุ่มพิมgoogle accountใช้งานไม่ได้
-6.ทำเป็นanimation casper the ghost บินมาทักทายตอนเวลาเริ่มจัด เเล้วพอเวลาใกล้หมดเเล้วก็บนออกมาเตือนชี้ไปที่เวลา
-7.เเก้ให้ ถ้าหมดเวลาบังคับให้userกดส่งคำตอบเท่าที่ได้เท่านั้น ทุกคำตอบที่ตอบไปเเล้วจะเก็บเข้าdatabase
-8.10วินาทีสุดท้ายให้มีเสียงดังหน่อยเหมือนนาฬิกาปลุก
-9.ข้อ18 2คะเเนน, ข้อ 19 9คะเเนน
 
 เปิด2 step verification ในgoogle:
 https://myaccount.google.com/signinoptions/twosv?rapt=AEjHL4MlXu8Hso-pXBt0WU35iCKsUTjJ7e-tlpKmm8rjZuhRTQ6dS8QE4w5fVZYD5WBDeFAwGXVF0QwdbOOL7yaZh7VpkRnyoTbJdbh0ASyp1PMoQD48s2E
 
 Google app password:
 https://myaccount.google.com/apppasswords?pli=1&rapt=AEjHL4ND7pJhcFMYTZ6hvicKXizSa1yE1bbuY1ql__HP19z85jKJc5ObE3u6khYuZmkIwrYNkQy71jIisdBANgImBro7ezQjtqbo2Ea2JIKD_LziY62EVC0
+
+
+สิ่งที่ต้องเเก้ต่อ:
+2.ปุ่มพิมgoogle accountใช้งานไม่ได้
+6.ทำเป็นanimation casper the ghost บินมาทักทายตอนเวลาเริ่มจัด เเล้วพอเวลาใกล้หมดเเล้วก็บนออกมาเตือนชี้ไปที่เวลา
+7.เเก้ให้ ถ้าหมดเวลาบังคับให้userกดส่งคำตอบเท่าที่ได้เท่านั้น ทุกคำตอบที่ตอบไปเเล้วจะเก็บเข้าdatabase
+8.10วินาทีสุดท้ายให้มีเสียงดังหน่อยเหมือนนาฬิกาปลุก
+9.ข้อ18 2คะเเนน, ข้อ 19 9คะเเนน
+10. 1 คน = 1 ชื่อ เท่านั้น
+11. ถ้ายังไม่หมดเวลาไม่สามารถกดปุ่มsumbitได้
+12.ถ้าส่งข้อสอบไปเเล้วจะไม่สามารถกดเข้าไปดูข้อสอบได้
+13.ทำไม่ให้userเข้าไปดูคะเเนนของuserซึ่งกันเเละกันได้
+14.adminไม่ควรรู้รหัสของuser
+15.เปลื่ยนหน้าตารางหน้า /admin/exam ให้เก็บเเค่ ชื่อ ส่งเมื่อไหร่ สถานะ การจัดการ คะเเนนล่าสุด

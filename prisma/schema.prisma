@@ -15,11 +15,10 @@ model User {
   role          Role       @default(USER)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+  password      String?    // ✅ เพิ่ม
   accounts      Account[]
   responses     Response[]
   sessions      Session[]
-
-  // ✅ เพิ่ม
   examStates    ExamState[]
 }
 
