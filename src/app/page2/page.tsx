@@ -5,23 +5,11 @@ export default function Page2() {
     <div className="relative min-h-screen overflow-hidden flex flex-col justify-center items-center text-center text-white bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
       {/* Background Flowers */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Large flower top-right */}
         <div className="absolute -top-10 right-24 opacity-20 flower-will-change animate-[flowerFloat_6s_ease-in-out_infinite]">
-          <svg
-            width="280"
-            height="280"
-            viewBox="0 0 100 100"
-            className="animate-[flowerGlow_2.5s_ease-in-out_infinite]"
-          >
+          <svg width="280" height="280" viewBox="0 0 100 100" className="animate-[flowerGlow_2.5s_ease-in-out_infinite]">
             <g transform="translate(50,50)">
               {[0, 60, 120, 180, 240, 300].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="20"
-                  ry="35"
-                  fill="#3b82f6"
-                  transform={`rotate(${deg})`}
-                />
+                <ellipse key={i} rx="20" ry="35" fill="#3b82f6" transform={`rotate(${deg})`} />
               ))}
               <circle r="12" fill="#1e3a8a" />
               <circle r="7" fill="#93c5fd" />
@@ -29,18 +17,11 @@ export default function Page2() {
           </svg>
         </div>
 
-        {/* Medium flower bottom-left */}
         <div className="absolute bottom-20 -left-5 opacity-15 flower-will-change animate-[flowerFloat_7s_ease-in-out_infinite_1s]">
           <svg width="240" height="240" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[0, 72, 144, 216, 288].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="18"
-                  ry="30"
-                  fill="#60a5fa"
-                  transform={`rotate(${deg})`}
-                />
+                <ellipse key={i} rx="18" ry="30" fill="#60a5fa" transform={`rotate(${deg})`} />
               ))}
               <circle r="10" fill="#1e40af" />
               <circle r="6" fill="#bfdbfe" />
@@ -48,36 +29,22 @@ export default function Page2() {
           </svg>
         </div>
 
-        {/* Small flower top-left */}
         <div className="absolute top-1/4 left-45 opacity-10 flower-will-change animate-[flowerFloat_8s_ease-in-out_infinite_2s]">
           <svg width="120" height="120" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[0, 90, 180, 270].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="15"
-                  ry="25"
-                  fill="#7dd3fc"
-                  transform={`rotate(${deg})`}
-                />
+                <ellipse key={i} rx="15" ry="25" fill="#7dd3fc" transform={`rotate(${deg})`} />
               ))}
               <circle r="8" fill="#0e7490" />
             </g>
           </svg>
         </div>
 
-        {/* Small flower bottom-right */}
         <div className="absolute bottom-1/3 right-20 opacity-10 flower-will-change animate-[flowerFloat_6.5s_ease-in-out_infinite]">
           <svg width="110" height="110" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[30, 90, 150, 210, 270, 330].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="12"
-                  ry="22"
-                  fill="#a5f3fc"
-                  transform={`rotate(${deg})`}
-                />
+                <ellipse key={i} rx="12" ry="22" fill="#a5f3fc" transform={`rotate(${deg})`} />
               ))}
               <circle r="6" fill="#0e7490" />
             </g>
@@ -101,12 +68,26 @@ export default function Page2() {
       </div>
 
       {/* Buttons */}
-      <div className="relative z-10 mt-6 flex flex-col items-center gap-4">
+      <div className="relative z-10 mt-6 flex flex-col items-center gap-4 w-52">
         <Link
           href="/signin"
-          className="w-52 rounded-full transition-all duration-300 bg-[#FFCC3E] text-black hover:bg-yellow-400 text-sm sm:text-base h-11 sm:h-12 px-6 sm:px-8 flex items-center justify-center shadow-lg shadow-yellow-500/20 hover:scale-105"
+          className="w-full rounded-full transition-all duration-300 bg-[#FFCC3E] text-black hover:bg-yellow-400 text-sm sm:text-base h-11 sm:h-12 px-6 sm:px-8 flex items-center justify-center shadow-lg shadow-yellow-500/20 hover:scale-105"
         >
           Sign In
+        </Link>
+
+        {/* Divider */}
+        <div className="flex items-center w-full gap-2">
+          <div className="flex-1 h-px bg-blue-300/30" />
+          <span className="text-blue-300/60 text-xs">or</span>
+          <div className="flex-1 h-px bg-blue-300/30" />
+        </div>
+
+        <Link
+          href="/signup"
+          className="w-full rounded-full transition-all duration-300 bg-white/10 border border-blue-300/30 text-white hover:bg-white/20 text-sm sm:text-base h-11 sm:h-12 px-6 sm:px-8 flex items-center justify-center hover:scale-105"
+        >
+          Sign Up
         </Link>
       </div>
     </div>
