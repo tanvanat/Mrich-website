@@ -14,7 +14,11 @@ type Row = {
   level: string;
   tip: string;
   course?: string | null;
-  user: { email: string | null; role: UserRole; name: string | null } | null;
+  formId?: string | null;
+  user: {
+    name: string | null;
+    role: UserRole;
+  } | null;
   answersJson: any;
 };
 
@@ -22,7 +26,12 @@ type AdminApi = {
   responses: Row[];
   stateMap: Record<
     string,
-    { role: UserRole; locked: boolean; startedAt: string | null; updatedAt: string }
+    {
+      role: UserRole;
+      locked: boolean;
+      startedAt: string | null;
+      updatedAt: string;
+    }
   >;
 };
 
@@ -40,16 +49,18 @@ type MeResp =
   | { authed: false };
 
 const COURSE = "proactive";
+const FORM_ID = "mrich-assessment-course2-v1";
 
-const MAX_SCORES = [
-  4, 6, 4, 4, 4, 4, 4, 4, 6, 4, 4, 4, 6, 4, 4, 4, 4, 4, 6, 6, 6, 4,
-] as const;
+const MAX_SCORES = [4, 6, 4, 4, 4, 4, 4, 4, 6, 4, 4, 4, 6, 4, 4, 4, 4, 4, 6, 6, 6, 4] as const;
 
 const TOTAL_MAX = MAX_SCORES.reduce((sum, v) => sum + v, 0);
 
 function fmt(dt: any) {
   if (!dt) return "—";
-  return new Date(dt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(dt).toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
 async function fetchJson<T = any>(url: string): Promise<{ res: Response; json: T | null }> {
@@ -71,7 +82,17 @@ function normalizeNick(v: string) {
 }
 
 function detectCourse(r: Row) {
-  return r.course ?? r.answersJson?.course ?? "mindset-principles";
+  return r.course ?? r.answersJson?.course ?? null;
+}
+
+function detectFormId(r: Row) {
+  return r.formId ?? r.answersJson?._meta?.formId ?? null;
+}
+
+function stateKeyFromRow(r: Row) {
+  const name = normalizeNick(r.user?.name ?? "");
+  const course = detectCourse(r) ?? COURSE;
+  return `${name}:${course}`;
 }
 
 export default function AdminExamCourse2Client() {
@@ -188,29 +209,33 @@ export default function AdminExamCourse2Client() {
   }
 
   const rows = useMemo(() => {
-    const responses = (data?.responses ?? []).filter((r) => detectCourse(r) === COURSE);
-    const latestByEmail = new Map<string, Row>();
+    const responses = (data?.responses ?? []).filter((r) => {
+      const byCourse = detectCourse(r) === COURSE;
+      const byFormId = detectFormId(r) === FORM_ID;
+      return byCourse || byFormId;
+    });
+
+    const latestByUser = new Map<string, Row>();
 
     responses.forEach((r) => {
-      const email = (r.user?.email ?? "").trim().toLowerCase();
-      if (!email) return;
-      const prev = latestByEmail.get(email);
+      const key = normalizeNick(r.user?.name ?? "");
+      if (!key) return;
+
+      const prev = latestByUser.get(key);
       if (!prev || new Date(r.createdAt).getTime() > new Date(prev.createdAt).getTime()) {
-        latestByEmail.set(email, r);
+        latestByUser.set(key, r);
       }
     });
 
-    let result = Array.from(latestByEmail.values()).sort(
+    let result = Array.from(latestByUser.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     const q = query.trim().toLowerCase();
     if (q) {
-      result = result.filter((r) => {
-        const email = (r.user?.email ?? "").toLowerCase();
-        const name = (r.user?.name ?? "").toLowerCase();
-        return email.includes(q) || name.includes(q);
-      });
+      result = result.filter((r) =>
+        (r.user?.name ?? "").toLowerCase().includes(q)
+      );
     }
 
     return result;
@@ -218,13 +243,19 @@ export default function AdminExamCourse2Client() {
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-20">
-      <div className="relative max-w-6xl mx-auto px-6 py-10">
+      <div className="relative max-w-7xl mx-auto px-6 py-10">
         <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-blue-500/20 p-6 shadow-2xl mb-8">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <h1 className="text-3xl font-bold">Admin — Exam Scoring (Course 2)</h1>
 
             <div className="flex items-center gap-3">
-              <span className={`text-xs px-3 py-1 rounded-full ${isAdmin ? "bg-emerald-900/50 text-emerald-200" : "bg-rose-900/50 text-rose-200"}`}>
+              <span
+                className={`text-xs px-3 py-1 rounded-full ${
+                  isAdmin
+                    ? "bg-emerald-900/50 text-emerald-200"
+                    : "bg-rose-900/50 text-rose-200"
+                }`}
+              >
                 {isAdmin ? "ADMIN" : "NOT ADMIN"}
               </span>
 
@@ -243,7 +274,7 @@ export default function AdminExamCourse2Client() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="ค้นหาด้วยอีเมลหรือชื่อ..."
+            placeholder="ค้นหาด้วยชื่อ..."
             className="mt-4 w-full px-4 py-3 rounded-xl bg-black/40 border border-blue-500/30 text-white placeholder-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -253,33 +284,34 @@ export default function AdminExamCourse2Client() {
             <table className="w-full text-sm">
               <thead className="bg-black/50">
                 <tr>
-                  <th className="p-4 text-left">อีเมล / ชื่อ</th>
+                  <th className="p-4 text-left">ชื่อ</th>
                   <th className="p-4 text-left">ส่งเมื่อ</th>
                   <th className="p-4 text-left">สถานะ</th>
                   <th className="p-4 text-left">การจัดการ</th>
+                  <th className="p-4 text-left">คะแนนล่าสุด</th>
+                  <th className="p-4 text-left">Role</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => {
-                  const email = (r.user?.email ?? "").toLowerCase();
-                  const locked = data?.stateMap?.[email]?.locked ?? false;
-                  const role = data?.stateMap?.[email]?.role ?? r.user?.role ?? "LEARNER";
+                  const rowKey = stateKeyFromRow(r);
+                  const locked = data?.stateMap?.[rowKey]?.locked ?? false;
+                  const role = data?.stateMap?.[rowKey]?.role ?? r.user?.role ?? "LEARNER";
                   const nickname = normalizeNick(r.user?.name ?? "");
                   const showUnlock = isAdmin && locked && role !== "ADMIN" && !!nickname;
 
                   return (
                     <tr key={r.id} className="border-t border-blue-500/10 hover:bg-white/5">
-                      <td className="p-4">
-                        <div className="font-medium">{r.user?.email ?? "—"}</div>
-                        <div className="text-xs text-blue-300">{r.user?.name ?? ""}</div>
-                      </td>
+                      <td className="p-4 font-medium">{r.user?.name ?? "—"}</td>
 
                       <td className="p-4">{fmt(r.createdAt)}</td>
 
                       <td className="p-4">
                         <span
                           className={`px-3 py-1 rounded-full text-xs ${
-                            locked ? "bg-emerald-900/50 text-emerald-200" : "bg-amber-900/50 text-amber-200"
+                            locked
+                              ? "bg-emerald-900/50 text-emerald-200"
+                              : "bg-amber-900/50 text-amber-200"
                           }`}
                         >
                           {locked ? "LOCKED" : "OPEN"}
@@ -299,21 +331,28 @@ export default function AdminExamCourse2Client() {
                             onClick={() => unlockByNickname(nickname)}
                             disabled={unlocking === nickname}
                             className={`px-4 py-2 rounded-full text-white ${
-                              unlocking === nickname ? "bg-gray-600 cursor-wait" : "bg-emerald-600 hover:bg-emerald-500"
+                              unlocking === nickname
+                                ? "bg-gray-600 cursor-wait"
+                                : "bg-emerald-600 hover:bg-emerald-500"
                             }`}
-                            title={`unlock ${nickname}`}
                           >
                             {unlocking === nickname ? "กำลังปลด..." : "Unlock"}
                           </button>
                         )}
                       </td>
+
+                      <td className="p-4 font-semibold text-cyan-300">
+                        {r.totalScore} / {r.maxScore}
+                      </td>
+
+                      <td className="p-4">{role}</td>
                     </tr>
                   );
                 })}
 
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="p-10 text-center text-blue-300">
+                    <td colSpan={6} className="p-10 text-center text-blue-300">
                       ไม่พบข้อมูล
                     </td>
                   </tr>
@@ -335,10 +374,15 @@ export default function AdminExamCourse2Client() {
           >
             <div className="p-6 border-b border-blue-500/20 flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-bold text-white">ให้คะแนน — {openRow.user?.email ?? "—"}</h2>
+                <h2 className="text-2xl font-bold text-white">
+                  ให้คะแนน — {openRow.user?.name ?? "—"}
+                </h2>
                 <p className="text-blue-300 mt-1">ส่งเมื่อ: {fmt(openRow.createdAt)}</p>
               </div>
-              <button className="text-4xl text-blue-300 hover:text-white" onClick={() => setOpenRow(null)}>
+              <button
+                className="text-4xl text-blue-300 hover:text-white"
+                onClick={() => setOpenRow(null)}
+              >
                 ×
               </button>
             </div>
@@ -346,7 +390,8 @@ export default function AdminExamCourse2Client() {
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
               {normalizeAnswers(openRow.answersJson).map((ans, i) => {
                 const max = MAX_SCORES[i] ?? 0;
-                const questionText = (questions as any[])[i]?.q || `(ข้อ ${i + 1} - ไม่พบคำถามในระบบ)`;
+                const questionText =
+                  (questions as any[])[i]?.q || `(ข้อ ${i + 1} - ไม่พบคำถามในระบบ)`;
 
                 return (
                   <div key={i} className="p-5 rounded-xl bg-black/50 border border-blue-600/30">
@@ -357,7 +402,9 @@ export default function AdminExamCourse2Client() {
                     </div>
 
                     <div className="mb-4">
-                      <div className="text-sm uppercase text-blue-400/80 mb-1 font-medium">คำตอบของผู้ใช้</div>
+                      <div className="text-sm uppercase text-blue-400/80 mb-1 font-medium">
+                        คำตอบของผู้ใช้
+                      </div>
                       <div className="whitespace-pre-wrap text-blue-50 leading-relaxed bg-slate-900/60 p-4 rounded border border-slate-700/50">
                         {ans || "— ไม่มีคำตอบ —"}
                       </div>
@@ -390,13 +437,18 @@ export default function AdminExamCourse2Client() {
               <div className="flex flex-wrap justify-between items-center gap-6 text-xl font-bold text-white">
                 <div>
                   รวมคะแนน:{" "}
-                  <span className="text-3xl text-cyan-300 ml-2">{scores.reduce((a, b) => a + b, 0)}</span>
+                  <span className="text-3xl text-cyan-300 ml-2">
+                    {scores.reduce((a, b) => a + b, 0)}
+                  </span>
                   <span className="text-cyan-400 ml-1">/ {TOTAL_MAX}</span>
                 </div>
                 <div>
                   เปอร์เซ็นต์:{" "}
                   <span className="text-3xl text-cyan-300 ml-2">
-                    {TOTAL_MAX > 0 ? Math.round((scores.reduce((a, b) => a + b, 0) / TOTAL_MAX) * 100) : 0}%
+                    {TOTAL_MAX > 0
+                      ? Math.round((scores.reduce((a, b) => a + b, 0) / TOTAL_MAX) * 100)
+                      : 0}
+                    %
                   </span>
                 </div>
               </div>
