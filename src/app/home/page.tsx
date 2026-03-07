@@ -38,6 +38,119 @@ type CourseItem = {
   description: string;
 };
 
+function FlowerBackground() {
+  return (
+    <>
+      <style jsx global>{`
+        @keyframes flowerFloat {
+          0%,
+          100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-18px) rotate(4deg);
+          }
+        }
+
+        @keyframes casper-float-in-out {
+          0% {
+            transform: translateX(150%) translateY(0) scale(0.7);
+            opacity: 0;
+          }
+          15% {
+            transform: translateX(0) translateY(-30px) scale(1);
+            opacity: 1;
+          }
+          70% {
+            transform: translateX(0) translateY(-60px) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(-180%) translateY(-100px) scale(0.6);
+            opacity: 0;
+          }
+        }
+
+        .animate-casper-float-in-out {
+          animation: casper-float-in-out 8.5s ease-in-out forwards;
+        }
+      `}</style>
+
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-12 left-8 opacity-[0.14] animate-[flowerFloat_7s_ease-in-out_infinite]">
+          <svg width="280" height="280" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[0, 60, 120, 180, 240, 300].map((deg, i) => (
+                <ellipse
+                  key={i}
+                  rx="20"
+                  ry="35"
+                  fill="#3b82f6"
+                  transform={`rotate(${deg})`}
+                />
+              ))}
+              <circle r="12" fill="#1e3a8a" />
+              <circle r="7" fill="#93c5fd" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute bottom-8 -right-16 opacity-[0.12] animate-[flowerFloat_8s_ease-in-out_infinite_1s]">
+          <svg width="250" height="250" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[0, 72, 144, 216, 288].map((deg, i) => (
+                <ellipse
+                  key={i}
+                  rx="18"
+                  ry="31"
+                  fill="#60a5fa"
+                  transform={`rotate(${deg})`}
+                />
+              ))}
+              <circle r="10" fill="#1e40af" />
+              <circle r="6" fill="#bfdbfe" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute top-[30%] right-[12%] opacity-[0.08] animate-[flowerFloat_9s_ease-in-out_infinite_2s]">
+          <svg width="130" height="130" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[0, 90, 180, 270].map((deg, i) => (
+                <ellipse
+                  key={i}
+                  rx="15"
+                  ry="25"
+                  fill="#7dd3fc"
+                  transform={`rotate(${deg})`}
+                />
+              ))}
+              <circle r="8" fill="#0e7490" />
+            </g>
+          </svg>
+        </div>
+
+        <div className="absolute bottom-[22%] left-[10%] opacity-[0.07] animate-[flowerFloat_10s_ease-in-out_infinite_0.5s]">
+          <svg width="180" height="180" viewBox="0 0 100 100">
+            <g transform="translate(50,50)">
+              {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
+                <ellipse
+                  key={i}
+                  rx="12"
+                  ry="24"
+                  fill="#2563eb"
+                  transform={`rotate(${deg})`}
+                />
+              ))}
+              <circle r="9" fill="#1d4ed8" />
+            </g>
+          </svg>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
 
@@ -159,15 +272,8 @@ export default function HomePage() {
 
   function canAccessCourse(access: CourseAccess) {
     if (isAdmin) return true;
-
-    if (access === "BOTH") {
-      return !!canLearner || !!canLeader;
-    }
-
-    if (access === "LEADER_ONLY") {
-      return !!canLeader;
-    }
-
+    if (access === "BOTH") return !!canLearner || !!canLeader;
+    if (access === "LEADER_ONLY") return !!canLeader;
     return false;
   }
 
@@ -200,10 +306,11 @@ export default function HomePage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
-      <div className="absolute inset-0 bg-black/25" />
+      <FlowerBackground />
+      <div className="absolute inset-0 bg-black/20" />
 
       {showCasper && (
-        <div className="fixed top-[15%] right-[5%] z-50 w-36 h-36 pointer-events-none animate-casper-float-in-out">
+        <div className="fixed top-[14%] right-[5%] z-50 w-32 h-32 pointer-events-none animate-casper-float-in-out">
           <div className="relative w-full h-full rounded-full overflow-hidden border-4 border-cyan-300/60 shadow-2xl shadow-cyan-500/70">
             <video
               ref={videoRef}
@@ -218,93 +325,82 @@ export default function HomePage() {
         </div>
       )}
 
-      <style jsx global>{`
-        @keyframes casper-float-in-out {
-          0% {
-            transform: translateX(150%) translateY(0) scale(0.7);
-            opacity: 0;
-          }
-          15% {
-            transform: translateX(0) translateY(-30px) scale(1);
-            opacity: 1;
-          }
-          70% {
-            transform: translateX(0) translateY(-60px) scale(1);
-            opacity: 1;
-          }
-          100% {
-            transform: translateX(-180%) translateY(-100px) scale(0.6);
-            opacity: 0;
-          }
-        }
-        .animate-casper-float-in-out {
-          animation: casper-float-in-out 8.5s ease-in-out forwards;
-        }
-      `}</style>
-
-      <div className="relative mx-auto w-full max-w-5xl px-6 py-10">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="rounded-2xl border border-blue-300/20 bg-white/5 backdrop-blur-xl p-6 shadow-2xl">
-            <div className="text-2xl md:text-3xl font-bold text-white font-serif drop-shadow-[0_0_20px_rgba(96,165,250,0.45)]">
-              Welcome back
-            </div>
-
-            <div className="mt-1 text-blue-200/80">
-              Signed in as:{" "}
-              <span className="text-blue-100 font-semibold">{userLabel}</span>
-            </div>
-
-            <div className="mt-1 text-sm text-cyan-300/90">
-              Role: {me.authed ? me.role : "-"}
-            </div>
-
-            <div className="mt-4">
-              {loadingScore ? (
-                <div className="text-blue-300 text-sm">กำลังโหลดคะแนน...</div>
-              ) : score?.hasScore ? (
-                <div className="text-lg font-medium text-white">
-                  คะแนนล่าสุด:{" "}
-                  <span className="text-cyan-300 font-bold">
-                    {score.totalScore} / {score.maxScore}
-                  </span>{" "}
-                  <span className="text-cyan-400 font-semibold">
-                    ({score.percent}%)
-                  </span>
+      <div className="relative mx-auto w-full max-w-6xl px-6 py-10">
+        <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-8 items-start">
+          <div className="rounded-[28px] border border-blue-300/20 bg-white/5 backdrop-blur-xl p-7 shadow-2xl">
+            <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+              <div className="max-w-xl">
+                <div className="text-4xl font-bold text-white font-serif leading-tight drop-shadow-[0_0_20px_rgba(96,165,250,0.45)]">
+                  Welcome back
                 </div>
-              ) : (
-                <div className="text-amber-300 text-sm font-medium">
-                  {score?.message || "ยังไม่ได้รับการตรวจ"}
-                </div>
-              )}
-            </div>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                onClick={signOutNick}
-                className="rounded-full border border-blue-300/30 px-5 py-2 font-semibold text-blue-100 hover:bg-white/10 transition-all duration-300"
-              >
-                Sign out
-              </button>
+                <div className="mt-3 text-lg text-blue-200/85">
+                  Signed in as:{" "}
+                  <span className="text-blue-100 font-semibold">{userLabel}</span>
+                </div>
+
+                <div className="mt-1 text-sm text-cyan-300/90">
+                  Role: {me.authed ? me.role : "-"}
+                </div>
+
+                <div className="mt-5">
+                  {loadingScore ? (
+                    <div className="text-blue-300 text-sm">กำลังโหลดคะแนน...</div>
+                  ) : score?.hasScore ? (
+                    <div className="text-lg font-medium text-white">
+                      คะแนนล่าสุด:{" "}
+                      <span className="text-cyan-300 font-bold">
+                        {score.totalScore} / {score.maxScore}
+                      </span>{" "}
+                      <span className="text-cyan-400 font-semibold">
+                        ({score.percent}%)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-amber-300 text-sm font-medium">
+                      {score?.message || "ยังไม่ได้รับการตรวจ"}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-row md:flex-col gap-3 shrink-0">
+                {isAdmin && (
+                  <Link
+                    href="/admin/exam"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-300/20 bg-white/5 backdrop-blur-xl px-5 py-3.5 font-bold text-blue-100 hover:bg-white/10 transition shadow-xl"
+                  >
+                    <Shield className="h-5 w-5" />
+                    ไปหน้า Admin Dashboard
+                  </Link>
+                )}
+
+                <button
+                  onClick={signOutNick}
+                  className="rounded-2xl border border-blue-300/30 px-5 py-3.5 font-semibold text-blue-100 hover:bg-white/10 transition-all duration-300"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
 
-          {isAdmin && (
-            <Link
-              href="/admin/exam"
-              className="inline-flex items-center gap-2 rounded-2xl border border-blue-300/20 bg-white/5 backdrop-blur-xl px-5 py-4 font-bold text-blue-100 hover:bg-white/10 transition shadow-2xl self-start md:self-center"
-            >
-              <Shield className="h-5 w-5" />
-              ไปหน้า Admin Dashboard
-            </Link>
-          )}
+          <div className="hidden xl:block" />
         </div>
 
-        <div className="mt-10">
-          <div className="text-xl md:text-2xl font-bold text-white font-serif">
-            Your Courses
+        <div className="mt-12">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div>
+              <div className="text-3xl font-bold text-white font-serif">
+                Your Courses
+              </div>
+              <div className="mt-2 text-sm text-blue-200/65">
+                เลือกคอร์สที่ต้องการเริ่มทำแบบประเมิน
+              </div>
+            </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
             {courses.map((c) => {
               const unlocked = canAccessCourse(c.access);
               const submitted = isCourseSubmitted(c.slug);
@@ -313,43 +409,53 @@ export default function HomePage() {
               return (
                 <div
                   key={c.id}
-                  className="relative rounded-xl border border-blue-300/20 bg-white/5 backdrop-blur-xl shadow-xl overflow-hidden"
+                  className="group relative rounded-[28px] border border-blue-300/20 bg-white/5 backdrop-blur-xl shadow-2xl overflow-hidden"
                 >
-                  <div
-                    className={`absolute inset-0 bg-gradient-to-br ${c.accent}`}
-                  />
+                  <div className={`absolute inset-0 bg-gradient-to-br ${c.accent}`} />
 
-                  <div className="relative p-5">
-                    <div>
-                      <div className="text-xl font-semibold text-white">
-                        {c.title}
-                      </div>
-                      <div className="mt-1 text-sm text-blue-200/80">
-                        {c.subtitle}
+                  <div className="relative p-7">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-3xl font-bold text-white tracking-tight">
+                          {c.title}
+                        </div>
+                        <div className="mt-2 text-base text-blue-100/80">
+                          {c.subtitle}
+                        </div>
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => openCourse(c)}
-                      disabled={disabled}
-                      className={`mt-4 w-full rounded-full px-4 py-2.5 font-bold transition ${
-                        disabled
-                          ? "bg-white/10 text-blue-100/50 cursor-not-allowed"
-                          : "bg-blue-500 text-white hover:bg-blue-400 shadow-lg shadow-blue-500/25"
-                      }`}
-                    >
-                      {!unlocked
-                        ? "No Access"
-                        : submitted
-                        ? "Submitted"
-                        : "Start Assessment"}
-                    </button>
+                    <div className="mt-8 flex items-center justify-between gap-4 flex-wrap">
+                      <div className="text-sm text-blue-100/60">
+                        {submitted
+                          ? "คุณส่งข้อสอบชุดนี้แล้ว"
+                          : !unlocked
+                          ? "คอร์สนี้ยังไม่พร้อมสำหรับสิทธิ์ของคุณ"
+                          : "พร้อมเริ่มทำแบบประเมิน"}
+                      </div>
+
+                      <button
+                        onClick={() => openCourse(c)}
+                        disabled={disabled}
+                        className={`min-w-[210px] rounded-full px-6 py-3 font-bold transition ${
+                          disabled
+                            ? "bg-white/10 text-blue-100/50 cursor-not-allowed"
+                            : "bg-blue-500 text-white hover:bg-blue-400 shadow-lg shadow-blue-500/25"
+                        }`}
+                      >
+                        {!unlocked
+                          ? "No Access"
+                          : submitted
+                          ? "Submitted"
+                          : "Start Assessment"}
+                      </button>
+                    </div>
                   </div>
 
                   {!unlocked && (
                     <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center">
                       <div className="text-center px-6">
-                        <div className="mx-auto mb-3 h-10 w-10 rounded-2xl bg-white/10 border border-blue-200/20 flex items-center justify-center">
+                        <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/10 border border-blue-200/20 flex items-center justify-center">
                           <Lock className="h-5 w-5 text-blue-100" />
                         </div>
                         <div className="text-sm font-semibold text-white">
@@ -381,7 +487,7 @@ export default function HomePage() {
 
             <button
               onClick={() => router.push("/goal")}
-              className="mt-3 w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-full hover:bg-blue-400 transition shadow-lg shadow-blue-500/25"
+              className="mt-3 w-full bg-blue-500 text-white font-bold py-2.5 px-4 rounded-full hover:bg-blue-400 transition shadow-lg shadow-blue-500/25"
             >
               Team Goals
             </button>
