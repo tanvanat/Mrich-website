@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getNickFromCookie, getOrCreateUserByNick, isNickAdmin } from "@/lib/auth";
 
-const EXAM_MINUTES = 30;
+const EXAM_MINUTES = 6;
 
 function newAttemptToken() {
   return crypto.randomUUID();

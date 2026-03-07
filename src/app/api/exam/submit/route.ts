@@ -16,7 +16,7 @@ import {
 import { getNickFromCookie, getOrCreateUserByNick, isNickAdmin } from "@/lib/auth";
 import crypto from "crypto";
 
-const EXAM_MINUTES = 30;
+const EXAM_MINUTES = 6;
 
 function getCourseConfig(course?: string | null) {
   if (course === "proactive") {

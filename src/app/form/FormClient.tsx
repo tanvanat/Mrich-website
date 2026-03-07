@@ -141,9 +141,18 @@ export default function FormClient() {
   const warningVideoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  const warningShownRef = useRef(false);
+  const warningHideTimerRef = useRef<number | null>(null);
+  const tenSecondAlarmPlayedRef = useRef(false);
+
   useEffect(() => {
     setAnswers(Array(questions.length).fill(""));
     setSubmitOk(undefined);
+    setState(null);
+    setShowWarningCasper(false);
+    setShowTimerAlert(false);
+    warningShownRef.current = false;
+    tenSecondAlarmPlayedRef.current = false;
   }, [questions.length, course]);
 
   const showToast = (type: ToastType, message: string, ms = 3500) => {
@@ -155,6 +164,7 @@ export default function FormClient() {
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (warningHideTimerRef.current) window.clearTimeout(warningHideTimerRef.current);
     };
   }, []);
 
@@ -162,6 +172,28 @@ export default function FormClient() {
     const t = setInterval(() => setNowMs(Date.now()), 250);
     return () => clearInterval(t);
   }, []);
+
+  // เก็บ interaction ของ user เพื่อให้เล่นเสียงได้
+  useEffect(() => {
+    if (userInteracted) return;
+
+    const handleInteract = () => {
+      setUserInteracted(true);
+      document.removeEventListener("click", handleInteract);
+      document.removeEventListener("keydown", handleInteract);
+      document.removeEventListener("touchstart", handleInteract);
+    };
+
+    document.addEventListener("click", handleInteract);
+    document.addEventListener("keydown", handleInteract);
+    document.addEventListener("touchstart", handleInteract);
+
+    return () => {
+      document.removeEventListener("click", handleInteract);
+      document.removeEventListener("keydown", handleInteract);
+      document.removeEventListener("touchstart", handleInteract);
+    };
+  }, [userInteracted]);
 
   async function loadState() {
     const res = await fetch(`/api/exam/state?course=${encodeURIComponent(course)}`, {
@@ -178,7 +210,6 @@ export default function FormClient() {
     const nextState = data as ExamStateResp;
     setState(nextState);
 
-    // ถ้าส่งแล้ว ไม่ให้กลับเข้ามาดูข้อสอบอีก (ยกเว้น admin)
     if (nextState.locked && nextState.role !== "ADMIN") {
       if (typeof window !== "undefined") {
         sessionStorage.setItem(`submitted:${course}`, "1");
@@ -203,31 +234,55 @@ export default function FormClient() {
   const isExpired = (state?.expired ?? false) || secondsLeft <= 0;
   const locked = !!state?.locked;
 
+  // Casper 5 นาทีสุดท้าย
   useEffect(() => {
+    const inWarningWindow = secondsLeft <= 300 && secondsLeft > 295;
+
     if (
-      secondsLeft <= 300 &&
-      secondsLeft > 290 &&
+      inWarningWindow &&
       !isExpired &&
-      !showWarningCasper
+      !warningShownRef.current
     ) {
+      warningShownRef.current = true;
       setShowWarningCasper(true);
+
+      if (warningHideTimerRef.current) {
+        window.clearTimeout(warningHideTimerRef.current);
+      }
+
+      warningHideTimerRef.current = window.setTimeout(() => {
+        setShowWarningCasper(false);
+      }, 8500);
+
       if (warningVideoRef.current) {
         warningVideoRef.current.currentTime = 0;
+        warningVideoRef.current.muted = !userInteracted;
         warningVideoRef.current.play().catch(() => {});
       }
     }
-  }, [secondsLeft, isExpired, showWarningCasper]);
+  }, [secondsLeft, isExpired, userInteracted]);
 
+  // 10 วินาทีสุดท้าย: ขึ้น ⏳ + เล่น alarm.mp3
   useEffect(() => {
-    if (secondsLeft <= 10 && secondsLeft > 0 && !isExpired) {
+    const inLastTenSeconds = secondsLeft <= 10 && secondsLeft > 0 && !isExpired;
+
+    if (inLastTenSeconds) {
       setShowTimerAlert(true);
-      if (userInteracted && audioRef.current) {
+
+      if (userInteracted && audioRef.current && !tenSecondAlarmPlayedRef.current) {
+        tenSecondAlarmPlayedRef.current = true;
+        audioRef.current.pause();
         audioRef.current.currentTime = 0;
+        audioRef.current.muted = false;
+        audioRef.current.volume = 1.0;
         audioRef.current.play().catch(() => {});
       }
     } else {
       setShowTimerAlert(false);
-      if (audioRef.current) audioRef.current.pause();
+      tenSecondAlarmPlayedRef.current = false;
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
     }
   }, [secondsLeft, isExpired, userInteracted]);
 
@@ -237,7 +292,6 @@ export default function FormClient() {
     return locked || submitOk !== undefined;
   }, [state, locked, submitOk]);
 
-  // ✅ ยังไม่หมดเวลา = กด submit ไม่ได้
   const canSubmit = useMemo(() => {
     if (!state) return false;
     if (!state.expiresAt) return false;
@@ -367,12 +421,7 @@ export default function FormClient() {
       try {
         audioRef.current.muted = false;
         audioRef.current.volume = 1.0;
-        audioRef.current.currentTime = 0;
-        await audioRef.current.play();
-      } catch (e) {
-        console.log("audio play failed:", e);
-        showToast("error", "เบราว์เซอร์บล็อกเสียง alarm ลองกดปุ่มอีกครั้ง", 3500);
-      }
+      } catch {}
     }
   };
 
@@ -393,6 +442,7 @@ export default function FormClient() {
           100% { transform: translateX(-150%) translateY(-60px) scale(0.7); opacity: 0; }
         }
         .animate-casper { animation: casper-appear-fade 8s ease-in-out forwards; }
+
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-10px); }
@@ -437,6 +487,7 @@ export default function FormClient() {
                   src="/casper-clip2.mp4"
                   preload="auto"
                   className="absolute inset-0 w-[130%] h-[130%] object-cover object-[50%_120%] scale-110"
+                  onEnded={() => setShowWarningCasper(false)}
                 />
               </div>
 
