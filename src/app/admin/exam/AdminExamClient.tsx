@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { questions } from "@/lib/questions-course1";
 
@@ -247,6 +248,15 @@ export default function AdminExamClient() {
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-20">
       <div className="relative max-w-7xl mx-auto px-6 py-10">
+        <div className="mb-4">
+          <Link
+            href="/home"
+            className="inline-flex items-center rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 font-bold text-cyan-200 hover:bg-cyan-400/20 transition"
+          >
+            ← Back to Home
+          </Link>
+        </div>
+
         <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-blue-500/20 p-6 shadow-2xl mb-8">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <h1 className="text-3xl font-bold">Admin — Exam Scoring (Course 1)</h1>
@@ -306,9 +316,7 @@ export default function AdminExamClient() {
                   return (
                     <tr key={r.id} className="border-t border-blue-500/10 hover:bg-white/5">
                       <td className="p-4 font-medium">{r.user?.name ?? "—"}</td>
-
                       <td className="p-4">{fmt(r.createdAt)}</td>
-
                       <td className="p-4">
                         <span
                           className={`px-3 py-1 rounded-full text-xs ${
@@ -320,7 +328,6 @@ export default function AdminExamClient() {
                           {locked ? "LOCKED" : "OPEN"}
                         </span>
                       </td>
-
                       <td className="p-4 space-x-2">
                         <button
                           onClick={() => setOpenRow(r)}
@@ -343,11 +350,9 @@ export default function AdminExamClient() {
                           </button>
                         )}
                       </td>
-
                       <td className="p-4 font-semibold text-cyan-300">
                         {r.totalScore} / {r.maxScore}
                       </td>
-
                       <td className="p-4">{role}</td>
                     </tr>
                   );
