@@ -1,8 +1,7 @@
-//ให้คะเเนนสำหรับcourse 1
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { questions } from "@/lib/questions-course1";
+import { questions } from "@/lib/questions-course2";
 
 type UserRole = "LEARNER" | "LEADER" | "ADMIN";
 
@@ -40,11 +39,10 @@ type MeResp =
     }
   | { authed: false };
 
-const COURSE = "mindset-principles";
+const COURSE = "proactive";
 
 const MAX_SCORES = [
-  2, 9, 9, 2, 2, 2, 4, 4, 4, 2, 2, 2, 6, 2, 4,
-  5, 2, 2, 9, 2, 4, 3, 2, 2, 2, 3, 2, 2, 2, 2,
+  4, 6, 4, 4, 4, 4, 4, 4, 6, 4, 4, 4, 6, 4, 4, 4, 4, 4, 6, 6, 6, 4,
 ] as const;
 
 const TOTAL_MAX = MAX_SCORES.reduce((sum, v) => sum + v, 0);
@@ -76,7 +74,7 @@ function detectCourse(r: Row) {
   return r.course ?? r.answersJson?.course ?? "mindset-principles";
 }
 
-export default function AdminExamClient() {
+export default function AdminExamCourse2Client() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [data, setData] = useState<AdminApi | null>(null);
@@ -223,7 +221,7 @@ export default function AdminExamClient() {
       <div className="relative max-w-6xl mx-auto px-6 py-10">
         <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-blue-500/20 p-6 shadow-2xl mb-8">
           <div className="flex justify-between items-center flex-wrap gap-4">
-            <h1 className="text-3xl font-bold">Admin — Exam Scoring (Course 1)</h1>
+            <h1 className="text-3xl font-bold">Admin — Exam Scoring (Course 2)</h1>
 
             <div className="flex items-center gap-3">
               <span className={`text-xs px-3 py-1 rounded-full ${isAdmin ? "bg-emerald-900/50 text-emerald-200" : "bg-rose-900/50 text-rose-200"}`}>

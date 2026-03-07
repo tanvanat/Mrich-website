@@ -1,42 +1,58 @@
-import { NextResponse } from "next/server";
+//จัดการ “สถานะข้อสอบ” ของแต่ละคน เช่น เริ่มสอบแล้วไหม หมดเวลายัง ล็อกหรือยัง
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getNickFromCookie, getOrCreateUserByNick, isNickAdmin } from "@/lib/auth";
 
-const FORM_ID = "mrich-assessment-v1";
 const EXAM_MINUTES = 30;
 
 function newAttemptToken() {
   return crypto.randomUUID();
 }
 
-export async function GET() {
+function getFormIdFromCourse(course?: string | null) {
+  if (course === "proactive") return "mrich-assessment-course2-v1";
+  return "mrich-assessment-course1-v1";
+}
+
+export async function GET(req: NextRequest) {
   const nick = await getNickFromCookie();
-  if (!nick) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!nick) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const course = req.nextUrl.searchParams.get("course");
+  const formId = getFormIdFromCourse(course);
 
   const user = await getOrCreateUserByNick(nick);
   const role = isNickAdmin(nick) ? "ADMIN" : "USER";
 
   let state = await prisma.examState.findUnique({
-    where: { userId_formId: { userId: user.id, formId: FORM_ID } },
+    where: {
+      userId_formId: {
+        userId: user.id,
+        formId,
+      },
+    },
   });
 
-  // create ครั้งแรก
   if (!state) {
     state = await prisma.examState.create({
       data: {
         userId: user.id,
-        formId: FORM_ID,
+        formId,
         attemptToken: newAttemptToken(),
-        startedAt: role === "USER" ? new Date() : null, // user เริ่มจับเวลาเมื่อเข้า
+        startedAt: role === "USER" ? new Date() : null,
         locked: false,
       },
     });
   } else {
-    // USER: ถ้ายังไม่ startedAt (เช่นถูก admin ปลดแล้วตั้ง startedAt=null) → เริ่มใหม่
     if (role === "USER" && !state.locked && !state.startedAt) {
       state = await prisma.examState.update({
         where: { id: state.id },
-        data: { startedAt: new Date(), attemptToken: newAttemptToken() },
+        data: {
+          startedAt: new Date(),
+          attemptToken: newAttemptToken(),
+        },
       });
     }
   }
@@ -50,6 +66,8 @@ export async function GET() {
 
   return NextResponse.json({
     role,
+    course: course ?? "mindset-principles",
+    formId,
     locked: state.locked,
     attemptToken: state.attemptToken,
     startedAt: startedAt?.toISOString() ?? null,

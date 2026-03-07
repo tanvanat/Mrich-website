@@ -1,12 +1,19 @@
-// src/app/form/FormClient.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
-import { questions as baseQuestions, maxTotal } from "@/lib/questions";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import {
+  questions as course1Questions,
+  maxTotal as course1MaxTotal,
+} from "@/lib/questions-course1";
+import {
+  questions as course2Questions,
+  maxTotal as course2MaxTotal,
+} from "@/lib/questions-course2";
 
 type ExamStateResp = {
-  role: "ADMIN" | "USER";
+  role: "ADMIN" | "LEARNER" | "LEADER";
   locked: boolean;
   startedAt: string | null;
   expiresAt: string | null;
@@ -18,6 +25,17 @@ type SubmitOk = { id: string };
 
 type ToastType = "info" | "success" | "error";
 type ToastState = { type: ToastType; message: string } | null;
+
+type CourseSlug = "mindset-principles" | "proactive";
+
+type AnyQuestion = {
+  id: string;
+  category: string;
+  q: string;
+  minChars?: number;
+  minItems?: number;
+  hint?: string;
+};
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -36,17 +54,19 @@ function titleForQuestion(raw: string, index1: number) {
   return `${index1}) ${s}`;
 }
 
-function patchQuestions(qs: any[]) {
+function patchCourse1Questions(qs: AnyQuestion[]) {
   const next = qs.map((q) => ({ ...q }));
 
   const replacements: Record<number, string> = {
-    5: `5.ถ้าต้องการเปลี่ยนแปลงชีวิต กระดุมเม็ดแรกที่ต้องเปลี่ยนคืออะไร?`,
-    25: `25.การทำ P/PC ให้สมดุลคือทำอะไร?`,
-    26: `26.สินทรัพย์ที่เป็น "ทรัพย์สิน" ที่เราต้องสะสมให้มากมีกี่อย่าง อะไรบ้าง?`,
+    5: `5. ถ้าต้องการเปลี่ยนแปลงชีวิต กระดุมเม็ดแรกที่ต้องเปลี่ยนคืออะไร?`,
+    25: `25. การทำ P/PC ให้สมดุลคือทำอะไร?`,
+    26: `26. สินทรัพย์ที่เป็น "ทรัพย์สิน" ที่เราต้องสะสมให้มากมีกี่อย่าง อะไรบ้าง?`,
   };
 
   const leadNo = (s: string) => {
-    const m = String(s ?? "").trim().match(/^(\d+)\s*[.)]/);
+    const m = String(s ?? "")
+      .trim()
+      .match(/^(\d+)\s*[.)]/);
     return m ? Number(m[1]) : null;
   };
 
@@ -70,9 +90,40 @@ function patchQuestions(qs: any[]) {
   return next;
 }
 
+function getCourseConfig(course: string | null) {
+  const normalized = (course ?? "mindset-principles") as CourseSlug;
+
+  if (normalized === "proactive") {
+    return {
+      slug: "proactive" as CourseSlug,
+      title: "ข้อสอบคนลีด Proactive",
+      questions: course2Questions as AnyQuestion[],
+      maxTotal: course2MaxTotal,
+    };
+  }
+
+  return {
+    slug: "mindset-principles" as CourseSlug,
+    title: "แบบทดสอบกรอบความคิดและหลักการ",
+    questions: patchCourse1Questions(course1Questions as AnyQuestion[]),
+    maxTotal: course1MaxTotal,
+  };
+}
+
 export default function FormClient() {
-  const questions = useMemo(() => patchQuestions(baseQuestions as any[]), []);
-  const [answers, setAnswers] = useState<string[]>(() => Array(questions.length).fill(""));
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const courseParam = searchParams.get("course");
+
+  const courseConfig = useMemo(() => getCourseConfig(courseParam), [courseParam]);
+  const course = courseConfig.slug;
+  const questions = courseConfig.questions;
+  const maxTotal = courseConfig.maxTotal;
+  const formTitle = courseConfig.title;
+
+  const [answers, setAnswers] = useState<string[]>(() =>
+    Array(questions.length).fill("")
+  );
 
   const [loading, setLoading] = useState(false);
   const [submitOk, setSubmitOk] = useState<SubmitOk | undefined>(undefined);
@@ -90,7 +141,11 @@ export default function FormClient() {
   const warningVideoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // ---- toast helpers ----
+  useEffect(() => {
+    setAnswers(Array(questions.length).fill(""));
+    setSubmitOk(undefined);
+  }, [questions.length, course]);
+
   const showToast = (type: ToastType, message: string, ms = 3500) => {
     setToast({ type, message });
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -103,28 +158,41 @@ export default function FormClient() {
     };
   }, []);
 
-  // tick
   useEffect(() => {
     const t = setInterval(() => setNowMs(Date.now()), 250);
     return () => clearInterval(t);
   }, []);
 
   async function loadState() {
-    const res = await fetch("/api/exam/state", {
+    const res = await fetch(`/api/exam/state?course=${encodeURIComponent(course)}`, {
       cache: "no-store",
-      credentials: "include", // ✅ ส่ง cookie
+      credentials: "include",
     });
     const data = await res.json().catch(() => null);
+
     if (!res.ok) {
       console.error("loadState failed:", data);
       return;
     }
-    setState(data as ExamStateResp);
+
+    const nextState = data as ExamStateResp;
+    setState(nextState);
+
+    // ถ้าส่งแล้ว ไม่ให้กลับเข้ามาดูข้อสอบอีก (ยกเว้น admin)
+    if (nextState.locked && nextState.role !== "ADMIN") {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(`submitted:${course}`, "1");
+      }
+      showToast("info", "คุณส่งข้อสอบชุดนี้แล้ว ไม่สามารถเปิดดูได้อีก");
+      setTimeout(() => {
+        router.replace("/home");
+      }, 600);
+    }
   }
 
   useEffect(() => {
     loadState();
-  }, []);
+  }, [course]);
 
   const secondsLeft = useMemo(() => {
     if (!state?.expiresAt) return 0;
@@ -135,19 +203,21 @@ export default function FormClient() {
   const isExpired = (state?.expired ?? false) || secondsLeft <= 0;
   const locked = !!state?.locked;
 
-  // Casper เตือนเมื่อเหลือ 5 นาที
   useEffect(() => {
-    if (secondsLeft <= 300 && secondsLeft > 290 && !isExpired && !showWarningCasper) {
+    if (
+      secondsLeft <= 300 &&
+      secondsLeft > 290 &&
+      !isExpired &&
+      !showWarningCasper
+    ) {
       setShowWarningCasper(true);
       if (warningVideoRef.current) {
         warningVideoRef.current.currentTime = 0;
         warningVideoRef.current.play().catch(() => {});
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [secondsLeft, isExpired]);
+  }, [secondsLeft, isExpired, showWarningCasper]);
 
-  // เสียงเมื่อเหลือ 10 วินาที
   useEffect(() => {
     if (secondsLeft <= 10 && secondsLeft > 0 && !isExpired) {
       setShowTimerAlert(true);
@@ -164,16 +234,18 @@ export default function FormClient() {
   const isLockedForInput = useMemo(() => {
     if (!state) return true;
     if (state.role === "ADMIN") return false;
-    return locked || (isExpired && submitOk !== undefined);
-  }, [state, locked, isExpired, submitOk]);
+    return locked || submitOk !== undefined;
+  }, [state, locked, submitOk]);
 
+  // ✅ ยังไม่หมดเวลา = กด submit ไม่ได้
   const canSubmit = useMemo(() => {
     if (!state) return false;
     if (!state.expiresAt) return false;
-    if (state.role === "USER" && locked) return false;
+    if (locked) return false;
     if (submitOk !== undefined) return false;
+    if (!isExpired) return false;
     return true;
-  }, [state, locked, submitOk]);
+  }, [state, locked, submitOk, isExpired]);
 
   async function submit(opts?: { silent?: boolean }) {
     if (!canSubmit || loading) return;
@@ -183,8 +255,9 @@ export default function FormClient() {
       const res = await fetch("/api/exam/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // ✅ ส่ง cookie
+        credentials: "include",
         body: JSON.stringify({
+          course,
           answers,
           attemptToken: state?.attemptToken,
           startedAt: state?.startedAt,
@@ -201,16 +274,22 @@ export default function FormClient() {
       }
 
       setSubmitOk({ id: data?.id ?? "-" });
-      await loadState();
-
-      if (!opts?.silent) showToast("success", "ส่งคำตอบเรียบร้อยแล้ว ✅", 3000);
-      else showToast("info", "หมดเวลาแล้ว ระบบส่งคำตอบให้อัตโนมัติ ✅", 3500);
 
       if (typeof window !== "undefined") {
-        setTimeout(() => {
-          window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-        }, 100);
+        sessionStorage.setItem(`submitted:${course}`, "1");
       }
+
+      await loadState();
+
+      if (!opts?.silent) {
+        showToast("success", "ส่งคำตอบเรียบร้อยแล้ว ✅", 3000);
+      } else {
+        showToast("info", "หมดเวลาแล้ว ระบบส่งคำตอบให้อัตโนมัติ ✅", 3500);
+      }
+
+      setTimeout(() => {
+        router.replace("/home");
+      }, 1200);
     } catch (err) {
       console.error("Submit error:", err);
       showToast("error", "เกิดข้อผิดพลาดในการส่งคำตอบ กรุณาลองใหม่", 4500);
@@ -219,15 +298,19 @@ export default function FormClient() {
     }
   }
 
-  // auto submit เมื่อหมดเวลา (ถ้ามีคำตอบ)
+  // หมดเวลา -> auto submit
   useEffect(() => {
-    if (isExpired && !loading && submitOk === undefined && answers.some((v) => v.trim().length > 0)) {
+    if (
+      isExpired &&
+      !loading &&
+      submitOk === undefined &&
+      !locked &&
+      answers.some((v) => v.trim().length > 0)
+    ) {
       submit({ silent: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExpired, loading, submitOk, answers]);
+  }, [isExpired, loading, submitOk, answers, locked]);
 
-  // ✅ FIX: reset timer แบบ ADMIN ด้วย POST + เช็ค res.ok
   async function adminResetTimer() {
     if (state?.role !== "ADMIN") return;
 
@@ -237,7 +320,7 @@ export default function FormClient() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}), // เผื่อขยายในอนาคต
+        body: JSON.stringify({ course }),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -246,11 +329,12 @@ export default function FormClient() {
         return;
       }
 
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(`submitted:${course}`);
+      }
+
       showToast("success", "รีเซ็ตเวลาใหม่แล้ว ✅", 2500);
       await loadState();
-
-      // ถ้าอยากชัวร์สุด
-      // window.location.reload();
     } finally {
       setLoading(false);
     }
@@ -381,13 +465,16 @@ export default function FormClient() {
           <div className="flex justify-between gap-4 flex-wrap items-start">
             <div>
               <h1 className="m-0 text-2xl sm:text-3xl font-extrabold font-serif drop-shadow-[0_0_20px_rgba(96,165,250,0.5)]">
-                แบบทดสอบกรอบความคิดและหลักการ
+                {formTitle}
               </h1>
             </div>
 
             <div className="flex gap-2 items-center flex-wrap">
               <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-blue-100 text-xs font-bold">
                 {state?.role ? `ROLE: ${state.role}` : "กำลังโหลด..."}
+              </span>
+              <span className="px-3 py-1 rounded-full border border-cyan-300/20 bg-cyan-400/10 text-cyan-100 text-xs font-bold">
+                {course === "proactive" ? "COURSE 2" : "COURSE 1"}
               </span>
             </div>
           </div>
@@ -400,7 +487,7 @@ export default function FormClient() {
               ตอบแล้ว: {answeredCount}/{questions.length}
             </span>
 
-            {state?.role === "USER" && (
+            {(state?.role === "LEARNER" || state?.role === "LEADER") && (
               <span
                 className="px-3 py-1 rounded-full text-xs font-extrabold border"
                 style={{
@@ -445,8 +532,15 @@ export default function FormClient() {
               <div className="font-extrabold text-blue-50 text-base sm:text-lg">
                 {titleForQuestion(q.q, qIdx + 1)}
               </div>
+
+              {q.hint && (
+                <div className="mt-2 text-xs sm:text-sm text-blue-200/70">
+                  Hint: {q.hint}
+                </div>
+              )}
+
               <textarea
-                value={answers[qIdx]}
+                value={answers[qIdx] ?? ""}
                 onChange={(e) => {
                   const next = [...answers];
                   next[qIdx] = e.target.value;
@@ -487,7 +581,9 @@ export default function FormClient() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="text-sm text-blue-200/80">ตอบแล้ว {answeredCount}/{questions.length}</div>
+            <div className="text-sm text-blue-200/80">
+              ตอบแล้ว {answeredCount}/{questions.length}
+            </div>
 
             <button
               onClick={() => submit()}
@@ -496,12 +592,16 @@ export default function FormClient() {
                 ${
                   !canSubmit || loading
                     ? "bg-slate-700/40 text-slate-400 cursor-not-allowed border border-slate-600/40"
-                    : isExpired
-                    ? "bg-red-600 hover:bg-red-500 text-white"
-                    : "bg-cyan-400 text-slate-900 hover:bg-cyan-300 active:scale-95"
+                    : "bg-red-600 hover:bg-red-500 text-white"
                 }`}
             >
-              {loading ? "กำลังส่ง..." : isExpired ? "ส่งคำตอบที่เหลือ (หมดเวลา)" : "ส่งคำตอบ"}
+              {loading
+                ? "กำลังส่ง..."
+                : locked || submitOk
+                ? "ส่งแล้ว"
+                : !isExpired
+                ? "รอหมดเวลา"
+                : "ส่งคำตอบ"}
             </button>
           </div>
         </div>

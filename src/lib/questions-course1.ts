@@ -1,14 +1,11 @@
-// /lib/questions.ts
-export const FORM_ID = "mrich-amway-h7-v1";
+export const FORM_ID = "mrich-amway-h7-v1-course1";
 
 export type Question = {
   id: string;
   category: string;
   q: string;
-
-  // scoring rules (auto)
-  minChars?: number;     // ต้องพิมพ์อย่างน้อยกี่ตัวอักษร
-  minItems?: number;     // ต้องตอบเป็น "อย่างน้อย N ข้อ" (นับจากบรรทัด/เลข/จุด/คอมม่า)
+  minChars?: number;
+  minItems?: number;
   hint?: string;
 };
 
@@ -76,26 +73,24 @@ export const questions: Question[] = [
   },
   { id: "q15", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: '15. "หลักการ" ของการสร้างการเจริญเติบโตและการเปลี่ยนแปลงคืออะไร?', minChars: 40 },
   { id: "q16", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "16. 5 ลำดับขั้นของการสร้างชีวิตให้มีความหมายมีอะไรบ้าง?", minItems: 5, minChars: 40 },
-  { id: "q17", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "17. หลักการที่ใช้ในการ\"มองปัญหา\" คืออะไร?", minChars: 30 },
-  { id: "q18", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "18. หลักการที่ใช้ในการ\"แก้ปัญหา\" คืออะไร?", minItems: 3, minChars: 40 },
+  { id: "q17", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: '17. หลักการที่ใช้ในการ"มองปัญหา" คืออะไร?', minChars: 30 },
+  { id: "q18", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: '18. หลักการที่ใช้ในการ"แก้ปัญหา" คืออะไร?', minItems: 3, minChars: 40 },
   { id: "q19", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "19. เราควรแก้ปัญหาในเรื่องใดบ้าง (บอกมาอย่างน้อย 3 อย่าง)", minChars: 30 },
-  { id: "q20", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "20. องค์ประกอบที่ก่อให้เกิด\"เป็นนิสัย\" มีอะไรบ้าง?", minItems: 2, minChars: 20 },
+  { id: "q20", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: '20. องค์ประกอบที่ก่อให้เกิด"เป็นนิสัย" มีอะไรบ้าง?', minItems: 2, minChars: 20 },
   { id: "q21", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "21. วัยเด็ก (วัยพึ่งพาผู้อื่น) ต้องได้นิสัยอะไรมา? ถึงจะเติบโตเป็นผู้ใหญ่ที่ดี", minChars: 40 },
   { id: "q22", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "22. ความเป็นผู้ใหญ่จริงๆ วัดกันตรงไหน?", minChars: 40 },
   { id: "q23", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "23. จะสร้างชีวิตที่มีความหมายได้ เราต้องมีนิสัยอะไร?", minChars: 40 },
   { id: "q24", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "24. ทำไมต้องสร้างสมดุลระหว่าง P/PC ?", minChars: 40 },
   { id: "q25", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "25. การสร้าง PC คือทำอะไรบ้าง?", minItems: 2, minChars: 30 },
-  { id: "q26", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "26. สินทรัพย์ที่เป็น\"ทรัพย์สิน\" ที่เราต้องสะสมให้มากมีกี่อย่าง อะไรบ้าง?", minItems: 2, minChars: 30 },
+  { id: "q26", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: '26. สินทรัพย์ที่เป็น"ทรัพย์สิน" ที่เราต้องสะสมให้มากมีกี่อย่าง อะไรบ้าง?', minItems: 2, minChars: 30 },
   { id: "q27", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "27. จัดเรียงลำดับความสำคัญของทรัพย์สินที่ต้องสะสม 3 อย่าง จากสำคัญมากสุดไปน้อยสุด", minItems: 2, minChars: 20 },
   { id: "q28", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "28. การสร้างนิสัยให้เห็นคุณค่าในสิ่งที่มีอยู่ ในชั้นที่ 2.1 คือทำอะไร?", minChars: 40 },
   { id: "q29", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "29. เราจะรู้สึกถึงความมั่นคงปลอดภัยในชีวิต เมื่อเราทำอะไรได้?", minChars: 40 },
   { id: "q30", category: "กรอบความคิดและภาพรวมนิสัยทั้ง7", q: "30. จุดสูงสุดของการสร้างชีวิตให้มีความหมายคือทำอะไร?", minChars: 40 },
 ];
 
-// ✅ คะแนนเต็ม (ข้อละ 1 คะแนน)
 export const maxTotal = questions.length;
 
-// ---- helpers (auto-check) ----
 function normalize(s: string) {
   return (s ?? "").replace(/\r/g, "").trim();
 }
@@ -104,22 +99,18 @@ export function countItems(answer: string) {
   const s = normalize(answer);
   if (!s) return 0;
 
-  // นับจากบรรทัด + bullet/ตัวเลข/คอมม่า
   const lines = s
     .split("\n")
     .map((x) => x.trim())
     .filter(Boolean);
 
-  // ถ้าเขียนเป็นบรรทัดอยู่แล้ว นับจากบรรทัดก่อน
   const byLines = lines.length;
 
-  // fallback: split ด้วยคอมม่า/เซมิโคลอน/•/-
   const bySep = s
     .split(/[,;•]/)
     .map((x) => x.trim())
     .filter(Boolean).length;
 
-  // ถ้าใช้ 1) 2) 3) ในบรรทัดเดียว
   const byNumbered = (s.match(/(^|\s)\d+[\)\.]/g) ?? []).length;
 
   return Math.max(byLines, bySep, byNumbered);
@@ -128,19 +119,15 @@ export function countItems(answer: string) {
 export function scoreAnswer(q: Question, answer: string) {
   const s = normalize(answer);
   if (!s) return 0;
-
   if (q.minChars && s.length < q.minChars) return 0;
   if (q.minItems && countItems(s) < q.minItems) return 0;
-
   return 1;
 }
 
 export function levelFromPercent(pct: number) {
-  // เงื่อนไขตามโจทย์
   if (pct === 100) return { level: "LEAD", tip: "ทำได้เต็ม 100% ✅ ได้ลีด" };
   if (pct >= 80) return { level: "PASS", tip: "ทำได้เกิน 80% ✅ ได้เรียนต่อ" };
   return { level: "REPEAT", tip: "ทำได้น้อยกว่า 79% ❌ เรียนซ้ำ" };
 }
 
-// กำหนดเวลาข้อสอบ (นาที)
 export const EXAM_MINUTES = 30;
