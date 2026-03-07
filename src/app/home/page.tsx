@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Lock, ArrowRight, Shield, CheckCircle2 } from "lucide-react";
+import { Lock, Shield } from "lucide-react";
 
 type MeResp =
   | {
@@ -242,7 +242,7 @@ export default function HomePage() {
         }
       `}</style>
 
-      <div className="relative mx-auto w-full max-w-6xl px-6 py-10">
+      <div className="relative mx-auto w-full max-w-5xl px-6 py-10">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="rounded-2xl border border-blue-300/20 bg-white/5 backdrop-blur-xl p-6 shadow-2xl">
             <div className="text-2xl md:text-3xl font-bold text-white font-serif drop-shadow-[0_0_20px_rgba(96,165,250,0.45)]">
@@ -280,24 +280,6 @@ export default function HomePage() {
 
             <div className="mt-5 flex flex-wrap gap-3">
               <button
-                onClick={() =>
-                  !isCourseSubmitted("mindset-principles") &&
-                  router.push("/form?course=mindset-principles")
-                }
-                disabled={isCourseSubmitted("mindset-principles") && !isAdmin}
-                className={`inline-flex items-center gap-2 rounded-full px-5 py-2 font-semibold transition-all duration-300 shadow-lg hover:scale-[1.02] ${
-                  isCourseSubmitted("mindset-principles") && !isAdmin
-                    ? "bg-slate-700/40 text-slate-400 cursor-not-allowed border border-slate-600/40"
-                    : "bg-blue-500 text-white hover:bg-blue-400 shadow-blue-500/30"
-                }`}
-              >
-                {isCourseSubmitted("mindset-principles") && !isAdmin
-                  ? "Submitted"
-                  : "Go to Assessment Form"}
-                <ArrowRight className="h-4 w-4" />
-              </button>
-
-              <button
                 onClick={signOutNick}
                 className="rounded-full border border-blue-300/30 px-5 py-2 font-semibold text-blue-100 hover:bg-white/10 transition-all duration-300"
               >
@@ -322,12 +304,7 @@ export default function HomePage() {
             Your Courses
           </div>
 
-          <div className="mt-2 text-sm text-blue-200/75">
-            Course 1: Learner และ Leader เข้าได้ • Course 2: Leader only •
-            Admin เข้าได้ทุกแบบทดสอบ
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
             {courses.map((c) => {
               const unlocked = canAccessCourse(c.access);
               const submitted = isCourseSubmitted(c.slug);
@@ -336,51 +313,26 @@ export default function HomePage() {
               return (
                 <div
                   key={c.id}
-                  className="relative rounded-2xl border border-blue-300/20 bg-white/5 backdrop-blur-xl shadow-2xl overflow-hidden"
+                  className="relative rounded-xl border border-blue-300/20 bg-white/5 backdrop-blur-xl shadow-xl overflow-hidden"
                 >
                   <div
                     className={`absolute inset-0 bg-gradient-to-br ${c.accent}`}
                   />
 
-                  <div className="relative p-6">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-lg font-semibold text-white">
-                          {c.title}
-                        </div>
-                        <div className="mt-1 text-sm text-blue-200/80">
-                          {c.subtitle}
-                        </div>
+                  <div className="relative p-5">
+                    <div>
+                      <div className="text-xl font-semibold text-white">
+                        {c.title}
                       </div>
-
-                      <div
-                        className={`rounded-full px-3 py-1 text-xs font-bold border ${
-                          c.access === "LEADER_ONLY"
-                            ? "border-violet-300/30 text-violet-200 bg-violet-500/10"
-                            : "border-cyan-300/30 text-cyan-200 bg-cyan-500/10"
-                        }`}
-                      >
-                        {c.access === "LEADER_ONLY"
-                          ? "LEADER ONLY"
-                          : "LEARNER + LEADER"}
-                      </div>
-                    </div>
-
-                    <div className="mt-6 rounded-xl border border-blue-300/15 bg-black/20 p-4">
-                      <div className="text-blue-100 font-semibold">
-                        {!unlocked ? "Locked" : submitted ? "Submitted" : "Available"}
-                      </div>
-                      <div className="mt-1 text-sm text-blue-200/70">
-                        {submitted
-                          ? "คุณส่งข้อสอบชุดนี้แล้ว"
-                          : c.description}
+                      <div className="mt-1 text-sm text-blue-200/80">
+                        {c.subtitle}
                       </div>
                     </div>
 
                     <button
                       onClick={() => openCourse(c)}
                       disabled={disabled}
-                      className={`mt-5 w-full rounded-full px-4 py-2 font-bold transition ${
+                      className={`mt-4 w-full rounded-full px-4 py-2.5 font-bold transition ${
                         disabled
                           ? "bg-white/10 text-blue-100/50 cursor-not-allowed"
                           : "bg-blue-500 text-white hover:bg-blue-400 shadow-lg shadow-blue-500/25"
@@ -397,20 +349,12 @@ export default function HomePage() {
                   {!unlocked && (
                     <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center">
                       <div className="text-center px-6">
-                        <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/10 border border-blue-200/20 flex items-center justify-center">
-                          <Lock className="h-6 w-6 text-blue-100" />
+                        <div className="mx-auto mb-3 h-10 w-10 rounded-2xl bg-white/10 border border-blue-200/20 flex items-center justify-center">
+                          <Lock className="h-5 w-5 text-blue-100" />
                         </div>
                         <div className="text-sm font-semibold text-white">
                           Locked for your role
                         </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {unlocked && !submitted && (
-                    <div className="absolute top-4 right-4">
-                      <div className="rounded-full bg-emerald-500/15 border border-emerald-300/25 p-1.5">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-300" />
                       </div>
                     </div>
                   )}
