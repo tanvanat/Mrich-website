@@ -64,9 +64,7 @@ function patchCourse1Questions(qs: AnyQuestion[]) {
   };
 
   const leadNo = (s: string) => {
-    const m = String(s ?? "")
-      .trim()
-      .match(/^(\d+)\s*[.)]/);
+    const m = String(s ?? "").trim().match(/^(\d+)\s*[.)]/);
     return m ? Number(m[1]) : null;
   };
 
@@ -173,7 +171,6 @@ export default function FormClient() {
     return () => clearInterval(t);
   }, []);
 
-  // เก็บ interaction ของ user เพื่อให้เล่นเสียงได้
   useEffect(() => {
     if (userInteracted) return;
 
@@ -234,15 +231,10 @@ export default function FormClient() {
   const isExpired = (state?.expired ?? false) || secondsLeft <= 0;
   const locked = !!state?.locked;
 
-  // Casper 5 นาทีสุดท้าย
   useEffect(() => {
     const inWarningWindow = secondsLeft <= 300 && secondsLeft > 295;
 
-    if (
-      inWarningWindow &&
-      !isExpired &&
-      !warningShownRef.current
-    ) {
+    if (inWarningWindow && !isExpired && !warningShownRef.current) {
       warningShownRef.current = true;
       setShowWarningCasper(true);
 
@@ -262,7 +254,6 @@ export default function FormClient() {
     }
   }, [secondsLeft, isExpired, userInteracted]);
 
-  // 10 วินาทีสุดท้าย: ขึ้น ⏳ + เล่น alarm.mp3
   useEffect(() => {
     const inLastTenSeconds = secondsLeft <= 10 && secondsLeft > 0 && !isExpired;
 
@@ -292,13 +283,14 @@ export default function FormClient() {
     return locked || submitOk !== undefined;
   }, [state, locked, submitOk]);
 
+  // ✅ FIX: ลบ !isExpired ออก → กดส่งได้ทันที ไม่ต้องรอหมดเวลา
   const canSubmit = useMemo(() => {
     if (!state) return false;
     if (!state.expiresAt) return false;
     if (locked) return false;
     if (submitOk !== undefined) return false;
     return true;
-  }, [state, locked, submitOk, isExpired]);
+  }, [state, locked, submitOk]);
 
   async function submit(opts?: { silent?: boolean }) {
     if (!canSubmit || loading) return;
@@ -351,7 +343,6 @@ export default function FormClient() {
     }
   }
 
-  // หมดเวลา -> auto submit
   useEffect(() => {
     if (
       isExpired &&
@@ -430,6 +421,13 @@ export default function FormClient() {
       : toast?.type === "error"
       ? "bg-red-500/15 border-red-300/25 text-red-100"
       : "bg-blue-500/15 border-blue-300/25 text-blue-100";
+
+  // ✅ FIX: ไม่มี "รอหมดเวลา" อีกต่อไป
+  const submitLabel = loading
+    ? "กำลังส่ง..."
+    : locked || submitOk
+    ? "ส่งแล้ว ✅"
+    : "ส่งคำตอบ";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-24">
@@ -622,8 +620,16 @@ export default function FormClient() {
           <div
             className="px-4 py-2 rounded-full text-sm font-extrabold border shadow-md relative"
             style={{
-              background: isExpired ? "rgba(239,68,68,0.22)" : "rgba(59,130,246,0.22)",
-              borderColor: isExpired ? "rgba(239,68,68,0.5)" : "rgba(59,130,246,0.5)",
+              background: isExpired
+                ? "rgba(239,68,68,0.22)"
+                : secondsLeft <= 300
+                ? "rgba(245,158,11,0.22)"
+                : "rgba(59,130,246,0.22)",
+              borderColor: isExpired
+                ? "rgba(239,68,68,0.5)"
+                : secondsLeft <= 300
+                ? "rgba(245,158,11,0.5)"
+                : "rgba(59,130,246,0.5)",
             }}
           >
             ⏳ {timerLabel}
@@ -635,6 +641,7 @@ export default function FormClient() {
               ตอบแล้ว {answeredCount}/{questions.length}
             </div>
 
+            {/* ✅ FIX: ปุ่มส่ง ไม่มี "รอหมดเวลา" แล้ว กดส่งได้ทันที */}
             <button
               onClick={() => submit()}
               disabled={!canSubmit || loading}
@@ -642,16 +649,10 @@ export default function FormClient() {
                 ${
                   !canSubmit || loading
                     ? "bg-slate-700/40 text-slate-400 cursor-not-allowed border border-slate-600/40"
-                    : "bg-red-600 hover:bg-red-500 text-white"
+                    : "bg-cyan-400 hover:bg-cyan-300 text-slate-900 active:scale-95"
                 }`}
             >
-              {loading
-                ? "กำลังส่ง..."
-                : locked || submitOk
-                ? "ส่งแล้ว"
-                : !isExpired
-                ? "รอหมดเวลา"
-                : "ส่งคำตอบ"}
+              {submitLabel}
             </button>
           </div>
         </div>
