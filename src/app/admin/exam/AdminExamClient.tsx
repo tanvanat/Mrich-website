@@ -14,8 +14,10 @@ type Row = {
   percent: number;
   level: string;
   tip: string;
+  name?: string | null;
   course?: string | null;
   formId?: string | null;
+  userId?: string | null;
   user: {
     name: string | null;
     role: UserRole;
@@ -93,10 +95,14 @@ function detectFormId(r: Row) {
   return r.formId ?? r.answersJson?._meta?.formId ?? null;
 }
 
-function stateKeyFromRow(r: Row) {
-  const name = normalizeNick(r.user?.name ?? "");
+function getDisplayName(r: Row) {
+  return r.user?.name ?? r.name ?? "—";
+}
+
+function getStateMapKey(r: Row) {
+  const nick = normalizeNick(getDisplayName(r));
   const course = detectCourse(r) ?? COURSE;
-  return `${name}:${course}`;
+  return `${nick}:${course}`;
 }
 
 export default function AdminExamClient() {
@@ -132,7 +138,11 @@ export default function AdminExamClient() {
         alert(err);
         return;
       }
-      if (json) setData(json);
+      if (json) {
+        setData(json);
+        console.log("[admin course1] responses =", json.responses);
+        console.log("[admin course1] stateMap =", json.stateMap);
+      }
     } finally {
       setLoading(false);
     }
@@ -219,26 +229,26 @@ export default function AdminExamClient() {
       return byCourse || byFormId;
     });
 
-    const latestByUser = new Map<string, Row>();
+    const latestByName = new Map<string, Row>();
 
     responses.forEach((r) => {
-      const key = normalizeNick(r.user?.name ?? "");
+      const key = normalizeNick(getDisplayName(r));
       if (!key) return;
 
-      const prev = latestByUser.get(key);
+      const prev = latestByName.get(key);
       if (!prev || new Date(r.createdAt).getTime() > new Date(prev.createdAt).getTime()) {
-        latestByUser.set(key, r);
+        latestByName.set(key, r);
       }
     });
 
-    let result = Array.from(latestByUser.values()).sort(
+    let result = Array.from(latestByName.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     const q = query.trim().toLowerCase();
     if (q) {
       result = result.filter((r) =>
-        (r.user?.name ?? "").toLowerCase().includes(q)
+        getDisplayName(r).toLowerCase().includes(q)
       );
     }
 
@@ -307,15 +317,19 @@ export default function AdminExamClient() {
               </thead>
               <tbody>
                 {rows.map((r) => {
-                  const rowKey = stateKeyFromRow(r);
+                  const rowKey = getStateMapKey(r);
                   const locked = data?.stateMap?.[rowKey]?.locked ?? false;
-                  const role = data?.stateMap?.[rowKey]?.role ?? r.user?.role ?? "LEARNER";
-                  const nickname = normalizeNick(r.user?.name ?? "");
+                  const role =
+                    data?.stateMap?.[rowKey]?.role ??
+                    r.user?.role ??
+                    (normalizeNick(getDisplayName(r)).includes("admin") ? "ADMIN" : "LEARNER");
+
+                  const nickname = normalizeNick(getDisplayName(r));
                   const showUnlock = isAdmin && locked && role !== "ADMIN" && !!nickname;
 
                   return (
                     <tr key={r.id} className="border-t border-blue-500/10 hover:bg-white/5">
-                      <td className="p-4 font-medium">{r.user?.name ?? "—"}</td>
+                      <td className="p-4 font-medium">{getDisplayName(r)}</td>
                       <td className="p-4">{fmt(r.createdAt)}</td>
                       <td className="p-4">
                         <span
@@ -383,7 +397,7 @@ export default function AdminExamClient() {
             <div className="p-6 border-b border-blue-500/20 flex justify-between items-center">
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  ให้คะแนน — {openRow.user?.name ?? "—"}
+                  ให้คะแนน — {getDisplayName(openRow)}
                 </h2>
                 <p className="text-blue-300 mt-1">ส่งเมื่อ: {fmt(openRow.createdAt)}</p>
               </div>
