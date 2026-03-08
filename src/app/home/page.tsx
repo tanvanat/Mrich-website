@@ -1,3 +1,4 @@
+// src/app/home/HomeClient.tsx
 "use client";
 
 import Link from "next/link";
@@ -26,6 +27,9 @@ type ScoreData = {
   message?: string;
 };
 
+// ✅ locked state ต่อ course จาก DB จริง
+type LockedMap = Record<string, boolean>; // key = course slug
+
 type CourseAccess = "BOTH" | "LEADER_ONLY";
 
 type CourseItem = {
@@ -38,42 +42,27 @@ type CourseItem = {
   description: string;
 };
 
+// formId ของแต่ละ course slug
+const COURSE_FORM_MAP: Record<string, string> = {
+  "mindset-principles": "mrich-assessment-course1-v1",
+  "proactive":          "mrich-assessment-course2-v1",
+};
+
 function FlowerBackground() {
   return (
     <>
       <style jsx global>{`
         @keyframes flowerFloat {
-          0%,
-          100% {
-            transform: translateY(0px) rotate(0deg);
-          }
-          50% {
-            transform: translateY(-18px) rotate(4deg);
-          }
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-18px) rotate(4deg); }
         }
-
         @keyframes casper-float-in-out {
-          0% {
-            transform: translateX(150%) translateY(0) scale(0.7);
-            opacity: 0;
-          }
-          15% {
-            transform: translateX(0) translateY(-30px) scale(1);
-            opacity: 1;
-          }
-          70% {
-            transform: translateX(0) translateY(-60px) scale(1);
-            opacity: 1;
-          }
-          100% {
-            transform: translateX(-180%) translateY(-100px) scale(0.6);
-            opacity: 0;
-          }
+          0%   { transform: translateX(150%) translateY(0) scale(0.7); opacity: 0; }
+          15%  { transform: translateX(0) translateY(-30px) scale(1); opacity: 1; }
+          70%  { transform: translateX(0) translateY(-60px) scale(1); opacity: 1; }
+          100% { transform: translateX(-180%) translateY(-100px) scale(0.6); opacity: 0; }
         }
-
-        .animate-casper-float-in-out {
-          animation: casper-float-in-out 8.5s ease-in-out forwards;
-        }
+        .animate-casper-float-in-out { animation: casper-float-in-out 8.5s ease-in-out forwards; }
       `}</style>
 
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -81,68 +70,21 @@ function FlowerBackground() {
           <svg width="280" height="280" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[0, 60, 120, 180, 240, 300].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="20"
-                  ry="35"
-                  fill="#3b82f6"
-                  transform={`rotate(${deg})`}
-                />
+                <ellipse key={i} rx="20" ry="35" fill="#3b82f6" transform={`rotate(${deg})`} />
               ))}
               <circle r="12" fill="#1e3a8a" />
               <circle r="7" fill="#93c5fd" />
             </g>
           </svg>
         </div>
-
         <div className="absolute bottom-8 -right-16 opacity-[0.12] animate-[flowerFloat_8s_ease-in-out_infinite_1s]">
           <svg width="250" height="250" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[0, 72, 144, 216, 288].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="18"
-                  ry="31"
-                  fill="#60a5fa"
-                  transform={`rotate(${deg})`}
-                />
+                <ellipse key={i} rx="18" ry="31" fill="#60a5fa" transform={`rotate(${deg})`} />
               ))}
               <circle r="10" fill="#1e40af" />
               <circle r="6" fill="#bfdbfe" />
-            </g>
-          </svg>
-        </div>
-
-        <div className="absolute top-[30%] right-[12%] opacity-[0.08] animate-[flowerFloat_9s_ease-in-out_infinite_2s]">
-          <svg width="130" height="130" viewBox="0 0 100 100">
-            <g transform="translate(50,50)">
-              {[0, 90, 180, 270].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="15"
-                  ry="25"
-                  fill="#7dd3fc"
-                  transform={`rotate(${deg})`}
-                />
-              ))}
-              <circle r="8" fill="#0e7490" />
-            </g>
-          </svg>
-        </div>
-
-        <div className="absolute bottom-[22%] left-[10%] opacity-[0.07] animate-[flowerFloat_10s_ease-in-out_infinite_0.5s]">
-          <svg width="180" height="180" viewBox="0 0 100 100">
-            <g transform="translate(50,50)">
-              {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
-                <ellipse
-                  key={i}
-                  rx="12"
-                  ry="24"
-                  fill="#2563eb"
-                  transform={`rotate(${deg})`}
-                />
-              ))}
-              <circle r="9" fill="#1d4ed8" />
             </g>
           </svg>
         </div>
@@ -158,13 +100,16 @@ export default function HomePage() {
   const [score, setScore] = useState<ScoreData | null>(null);
   const [loadingScore, setLoadingScore] = useState(true);
 
-  const [submittedMap, setSubmittedMap] = useState<Record<string, boolean>>({});
+  // ✅ lockedMap อ่านจาก DB ผ่าน /api/user/locked-courses
+  const [lockedMap, setLockedMap] = useState<LockedMap>({});
+  const [loadingLocked, setLoadingLocked] = useState(true);
 
   const [showPopup, setShowPopup] = useState(true);
   const [showCasper, setShowCasper] = useState(true);
   const [userInteracted, setUserInteracted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // โหลด me
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store", credentials: "include" })
       .then(async (res) => {
@@ -173,9 +118,7 @@ export default function HomePage() {
       })
       .then((data) => {
         setMe(data);
-        if (!data.authed) {
-          router.replace("/signin");
-        }
+        if (!data.authed) router.replace("/signin");
       })
       .catch(() => {
         setMe({ authed: false });
@@ -183,28 +126,28 @@ export default function HomePage() {
       });
   }, [router]);
 
+  // โหลดคะแนน
   useEffect(() => {
     if (!me || !me.authed) return;
-
     setLoadingScore(true);
     fetch("/api/user/score", { cache: "no-store", credentials: "include" })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: ScoreData) => setScore(data))
-      .catch(() =>
-        setScore({ hasScore: false, message: "ไม่สามารถโหลดคะแนนได้" })
-      )
+      .catch(() => setScore({ hasScore: false, message: "ยังไม่ได้รับการตรวจ" }))
       .finally(() => setLoadingScore(false));
   }, [me]);
 
+  // ✅ โหลด locked state จาก DB จริง (ไม่ใช้ sessionStorage อีกต่อไป)
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!me || !me.authed) return;
 
-    setSubmittedMap({
-      "mindset-principles":
-        window.sessionStorage.getItem("submitted:mindset-principles") === "1",
-      proactive: window.sessionStorage.getItem("submitted:proactive") === "1",
-    });
-  }, []);
+    setLoadingLocked(true);
+    fetch("/api/user/locked-courses", { cache: "no-store", credentials: "include" })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: LockedMap) => setLockedMap(data))
+      .catch(() => setLockedMap({}))
+      .finally(() => setLoadingLocked(false));
+  }, [me]);
 
   useEffect(() => {
     if (!showCasper) return;
@@ -214,7 +157,6 @@ export default function HomePage() {
 
   useEffect(() => {
     if (userInteracted) return;
-
     const handle = () => {
       setUserInteracted(true);
       if (videoRef.current) {
@@ -225,11 +167,9 @@ export default function HomePage() {
       document.removeEventListener("scroll", handle);
       document.removeEventListener("touchstart", handle);
     };
-
     document.addEventListener("click", handle);
     document.addEventListener("scroll", handle);
     document.addEventListener("touchstart", handle);
-
     return () => {
       document.removeEventListener("click", handle);
       document.removeEventListener("scroll", handle);
@@ -237,10 +177,7 @@ export default function HomePage() {
     };
   }, [userInteracted]);
 
-  const userLabel = useMemo(
-    () => (me && me.authed ? me.nick : "unknown"),
-    [me]
-  );
+  const userLabel = useMemo(() => (me && me.authed ? me.nick : "unknown"), [me]);
 
   const isAdmin = me?.authed === true && me.permissions.canAccessAdmin;
   const canLeader = me?.authed === true && me.permissions.canAccessLeaderExam;
@@ -277,17 +214,16 @@ export default function HomePage() {
     return false;
   }
 
+  // ✅ อ่านจาก lockedMap (DB) แทน sessionStorage
   function isCourseSubmitted(slug: string) {
-    if (isAdmin) return false;
-    return !!submittedMap[slug];
+    if (isAdmin) return false; // ADMIN กดได้เสมอ
+    return !!lockedMap[slug];
   }
 
   function openCourse(course: CourseItem) {
     const allowed = canAccessCourse(course.access);
     const submitted = isCourseSubmitted(course.slug);
-
     if (!allowed || submitted) return;
-
     router.push(`/form?course=${course.slug}`);
   }
 
@@ -333,16 +269,13 @@ export default function HomePage() {
                 <div className="text-4xl font-bold text-white font-serif leading-tight drop-shadow-[0_0_20px_rgba(96,165,250,0.45)]">
                   Welcome back
                 </div>
-
                 <div className="mt-3 text-lg text-blue-200/85">
                   Signed in as:{" "}
                   <span className="text-blue-100 font-semibold">{userLabel}</span>
                 </div>
-
                 <div className="mt-1 text-sm text-cyan-300/90">
                   Role: {me.authed ? me.role : "-"}
                 </div>
-
                 <div className="mt-5">
                   {loadingScore ? (
                     <div className="text-blue-300 text-sm">กำลังโหลดคะแนน...</div>
@@ -352,9 +285,7 @@ export default function HomePage() {
                       <span className="text-cyan-300 font-bold">
                         {score.totalScore} / {score.maxScore}
                       </span>{" "}
-                      <span className="text-cyan-400 font-semibold">
-                        ({score.percent}%)
-                      </span>
+                      <span className="text-cyan-400 font-semibold">({score.percent}%)</span>
                     </div>
                   ) : (
                     <div className="text-amber-300 text-sm font-medium">
@@ -374,7 +305,6 @@ export default function HomePage() {
                     ไปหน้า Admin Dashboard
                   </Link>
                 )}
-
                 <button
                   onClick={signOutNick}
                   className="rounded-2xl border border-blue-300/30 px-5 py-3.5 font-semibold text-blue-100 hover:bg-white/10 transition-all duration-300"
@@ -384,16 +314,13 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-
           <div className="hidden xl:block" />
         </div>
 
         <div className="mt-12">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
-              <div className="text-3xl font-bold text-white font-serif">
-                Your Courses
-              </div>
+              <div className="text-3xl font-bold text-white font-serif">Your Courses</div>
               <div className="mt-2 text-sm text-blue-200/65">
                 เลือกคอร์สที่ต้องการเริ่มทำแบบประเมิน
               </div>
@@ -403,8 +330,10 @@ export default function HomePage() {
           <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
             {courses.map((c) => {
               const unlocked = canAccessCourse(c.access);
+              // ✅ submitted อ่านจาก DB (lockedMap) ไม่ใช่ sessionStorage
               const submitted = isCourseSubmitted(c.slug);
               const disabled = !unlocked || submitted;
+              const isLoading = loadingLocked && !isAdmin;
 
               return (
                 <div
@@ -419,15 +348,15 @@ export default function HomePage() {
                         <div className="text-3xl font-bold text-white tracking-tight">
                           {c.title}
                         </div>
-                        <div className="mt-2 text-base text-blue-100/80">
-                          {c.subtitle}
-                        </div>
+                        <div className="mt-2 text-base text-blue-100/80">{c.subtitle}</div>
                       </div>
                     </div>
 
                     <div className="mt-8 flex items-center justify-between gap-4 flex-wrap">
                       <div className="text-sm text-blue-100/60">
-                        {submitted
+                        {isLoading
+                          ? "กำลังโหลด..."
+                          : submitted
                           ? "คุณส่งข้อสอบชุดนี้แล้ว"
                           : !unlocked
                           ? "คอร์สนี้ยังไม่พร้อมสำหรับสิทธิ์ของคุณ"
@@ -436,17 +365,21 @@ export default function HomePage() {
 
                       <button
                         onClick={() => openCourse(c)}
-                        disabled={disabled}
+                        disabled={disabled || isLoading}
                         className={`min-w-[210px] rounded-full px-6 py-3 font-bold transition ${
-                          disabled
+                          isLoading
+                            ? "bg-white/10 text-blue-100/50 cursor-wait"
+                            : disabled
                             ? "bg-white/10 text-blue-100/50 cursor-not-allowed"
                             : "bg-blue-500 text-white hover:bg-blue-400 shadow-lg shadow-blue-500/25"
                         }`}
                       >
-                        {!unlocked
+                        {isLoading
+                          ? "..."
+                          : !unlocked
                           ? "No Access"
                           : submitted
-                          ? "Submitted"
+                          ? "Submitted ✅"
                           : "Start Assessment"}
                       </button>
                     </div>
@@ -484,7 +417,6 @@ export default function HomePage() {
                 ×
               </button>
             </div>
-
             <button
               onClick={() => router.push("/goal")}
               className="mt-3 w-full bg-blue-500 text-white font-bold py-2.5 px-4 rounded-full hover:bg-blue-400 transition shadow-lg shadow-blue-500/25"
