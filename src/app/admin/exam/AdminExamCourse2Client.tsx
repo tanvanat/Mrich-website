@@ -116,7 +116,6 @@ export default function AdminExamCourse2Client() {
 
   useEffect(() => { load(); }, []);
 
-  // ✅ โหลด scores เดิมเมื่อเปิด modal
   useEffect(() => {
     if (!openRow) return;
     const existing = openRow.answersJson?.scores ?? [];
@@ -127,7 +126,6 @@ export default function AdminExamCourse2Client() {
     setScores(initial);
   }, [openRow]);
 
-  // ✅ saveScores — เรียก /api/admin/score
   async function saveScores() {
     if (!openRow?.id) return;
     setSaving(true);
@@ -155,7 +153,6 @@ export default function AdminExamCourse2Client() {
     }
   }
 
-  // ✅ unlockByNickname
   async function unlockByNickname(nickname: string) {
     const nick = normalizeNick(nickname);
     if (!nick) return;
@@ -218,13 +215,13 @@ export default function AdminExamCourse2Client() {
           <div className="flex justify-between items-center flex-wrap gap-4">
             <h1 className="text-3xl font-bold">Admin — Exam Scoring (Course 2)</h1>
             <div className="flex items-center gap-3">
-              <span className={`text-xs px-3 py-1 rounded-full ${isAdmin ? "bg-emerald-900/50 text-emerald-200" : "bg-rose-900/50 text-rose-200"}`}>
+              <span className={`text-xs px-3 py-1 rounded-full font-bold ${isAdmin ? "bg-emerald-900/50 text-emerald-200" : "bg-rose-900/50 text-rose-200"}`}>
                 {isAdmin ? "ADMIN" : "NOT ADMIN"}
               </span>
               <button
                 onClick={load}
                 disabled={loading}
-                className={`px-6 py-2 rounded-full font-medium ${loading ? "bg-gray-600 cursor-wait" : "bg-blue-600 hover:bg-blue-500"} text-white transition`}
+                className={`px-6 py-2 rounded-full font-medium transition text-white ${loading ? "bg-gray-600 cursor-wait" : "bg-blue-600 hover:bg-blue-500"}`}
               >
                 {loading ? "กำลังโหลด..." : "รีเฟรช"}
               </button>
@@ -257,33 +254,47 @@ export default function AdminExamCourse2Client() {
                   const locked = data?.stateMap?.[rowKey]?.locked ?? false;
                   const role = data?.stateMap?.[rowKey]?.role ?? r.user?.role ?? "LEARNER";
                   const nickname = normalizeNick(getDisplayName(r));
-                  const showUnlock = isAdmin && locked && role !== "ADMIN" && !!nickname;
+
+                  // ✅ FIX: แสดงปุ่ม Unlock ทุก non-ADMIN ที่มี response แล้ว
+                  // ไม่ต้องเช็ค locked เพราะ submit route เดิมไม่ได้ lock LEADER
+                  const showUnlock = isAdmin && role !== "ADMIN" && !!nickname;
 
                   return (
                     <tr key={r.id} className="border-t border-blue-500/10 hover:bg-white/5">
                       <td className="p-4 font-medium">{getDisplayName(r)}</td>
                       <td className="p-4">{fmt(r.createdAt)}</td>
                       <td className="p-4">
-                        <span className={`px-3 py-1 rounded-full text-xs ${locked ? "bg-emerald-900/50 text-emerald-200" : "bg-amber-900/50 text-amber-200"}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          locked
+                            ? "bg-emerald-900/50 text-emerald-200"
+                            : "bg-amber-900/50 text-amber-200"
+                        }`}>
                           {locked ? "LOCKED" : "OPEN"}
                         </span>
                       </td>
-                      <td className="p-4 space-x-2">
-                        <button
-                          onClick={() => setOpenRow(r)}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-full text-white"
-                        >
-                          ดู & ให้คะแนน
-                        </button>
-                        {showUnlock && (
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <button
-                            onClick={() => unlockByNickname(nickname)}
-                            disabled={unlocking === nickname}
-                            className={`px-4 py-2 rounded-full text-white ${unlocking === nickname ? "bg-gray-600 cursor-wait" : "bg-emerald-600 hover:bg-emerald-500"}`}
+                            onClick={() => setOpenRow(r)}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-full text-white font-medium transition"
                           >
-                            {unlocking === nickname ? "กำลังปลด..." : "Unlock"}
+                            ดู & ให้คะแนน
                           </button>
-                        )}
+                          {/* ✅ ปุ่ม Unlock สำหรับทุก non-ADMIN ที่ส่งแล้ว */}
+                          {showUnlock && (
+                            <button
+                              onClick={() => unlockByNickname(nickname)}
+                              disabled={unlocking === nickname}
+                              className={`px-4 py-2 rounded-full text-white font-medium transition ${
+                                unlocking === nickname
+                                  ? "bg-gray-600 cursor-wait"
+                                  : "bg-emerald-600 hover:bg-emerald-500"
+                              }`}
+                            >
+                              {unlocking === nickname ? "กำลังปลด..." : "Unlock"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 font-semibold text-cyan-300">{r.totalScore} / {r.maxScore}</td>
                       <td className="p-4">{role}</td>
@@ -301,7 +312,7 @@ export default function AdminExamCourse2Client() {
         </div>
       </div>
 
-      {/* ✅ Modal ให้คะแนน — หายไปในเวอร์ชันเก่า เพิ่มกลับมา */}
+      {/* Modal ให้คะแนน */}
       {openRow && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
@@ -328,10 +339,8 @@ export default function AdminExamCourse2Client() {
 
                 return (
                   <div key={i} className="p-5 rounded-xl bg-black/50 border border-blue-600/30">
-                    <div className="mb-4">
-                      <div className="text-blue-100/90 leading-relaxed whitespace-pre-wrap border-l-4 border-blue-500/60 pl-4 py-2 bg-slate-900/30">
-                        {questionText}
-                      </div>
+                    <div className="mb-4 border-l-4 border-blue-500/60 pl-4 py-2 bg-slate-900/30 text-blue-100/90 leading-relaxed whitespace-pre-wrap">
+                      {questionText}
                     </div>
                     <div className="mb-4">
                       <div className="text-sm uppercase text-blue-400/80 mb-1 font-medium">คำตอบของผู้ใช้</div>
@@ -388,7 +397,9 @@ export default function AdminExamCourse2Client() {
               <button
                 onClick={saveScores}
                 disabled={saving}
-                className={`px-8 py-3 rounded-full font-bold ${saving ? "bg-gray-600 cursor-wait" : "bg-cyan-600 hover:bg-cyan-500"} text-white shadow-lg shadow-cyan-700/30 transition`}
+                className={`px-8 py-3 rounded-full font-bold transition text-white shadow-lg shadow-cyan-700/30 ${
+                  saving ? "bg-gray-600 cursor-wait" : "bg-cyan-600 hover:bg-cyan-500"
+                }`}
               >
                 {saving ? "กำลังบันทึก..." : "บันทึกคะแนน"}
               </button>
