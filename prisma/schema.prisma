@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,20 +8,30 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
 model User {
-  id            String     @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String?
-  email         String?    @unique
+  email         String?     @unique
   emailVerified DateTime?
   image         String?
-  role          Role       @default(USER)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  password      String?    // ✅ เพิ่ม
-  accounts      Account[]
-  responses     Response[]
-  sessions      Session[]
-  examStates    ExamState[]
+  role          Role        @default(USER)
+  password      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  accounts   Account[]
+  responses  Response[]
+  sessions   Session[]
+  examStates ExamState[]
 }
 
 model Account {
@@ -35,7 +47,8 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -45,7 +58,8 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -57,25 +71,23 @@ model VerificationToken {
 }
 
 model Response {
-  id String @id @default(cuid())
-  name String?
+  id         String   @id @default(cuid())
+  name       String?
   totalScore Int
-  maxScore Int
-  percent Float
-  level String
-  tip String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt   // ← เพิ่มบรรทัดนี้
-  formId String @default("mrich-assessment-v1")
-  userId String?
+  maxScore   Int
+  percent    Float
+  level      String
+  tip        String
+  formId     String   @default("mrich-assessment-v1")
+  userId     String?
   answersJson Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
   user User? @relation(fields: [userId], references: [id])
+
   @@index([createdAt])
   @@index([userId])
-}
-enum Role {
-  USER
-  ADMIN
 }
 
 model ExamState {
@@ -83,19 +95,22 @@ model ExamState {
   userId       String
   formId       String   @default("mrich-assessment-v1")
 
-  // token ของ "รอบนี้" ใช้กันปลอม submit ข้ามรอบ
+  // token ของรอบนี้ — ป้องกัน submit ข้ามรอบ
   attemptToken String   @unique @default(cuid())
 
-  // เวลาเริ่มทำรอบนี้ (DB เป็นแหล่งจริง -> refresh ก็ยังนับต่อ)
+  // เวลาเริ่มทำรอบนี้
   startedAt    DateTime?
 
-  // user ส่งแล้วหรือหมดเวลาแล้ว = locked (ทำซ้ำไม่ได้จน admin ปลด)
+  // ✅ เพิ่ม expiresAt — จำเป็นสำหรับ timer และ admin/exam page
+  expiresAt    DateTime?
+
+  // ส่งแล้ว / หมดเวลา → locked จนกว่า admin จะปลด
   locked       Boolean  @default(false)
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, formId])
   @@index([formId, updatedAt])
