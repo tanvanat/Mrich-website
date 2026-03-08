@@ -134,7 +134,7 @@ export default function SignUpClient() {
           </div>
 
           <div>
-            <label className="block text-sm text-blue-200 mb-1">รหัสผ่าน (6 ตัว a-z, 0-9)</label>
+            <label className="block text-sm text-blue-200 mb-1">รหัสผ่าน (6 ตัว a-z หรือ0-9)</label>
             <input
               type="password"
               value={password}
