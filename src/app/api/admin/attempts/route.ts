@@ -1,27 +1,48 @@
-// src/app/api/admin/attempts/route.ts
+// ดึงข้อมูลทั้ง Responses และ ExamStates มาแสดงในหน้า Admin Dashboard เดียวกัน
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getNickFromCookie, isNickAdmin } from "@/lib/auth";
 
-export const runtime = "nodejs"; // ✅ prisma ชัวร์ ไม่หลุด edge
+export const runtime = "nodejs";
 
-const FORM_ID = "mrich-assessment-v1";
+// ✅ formId ใหม่ทั้งสอง course
+const FORM_IDS = [
+  "mrich-assessment-course1-v1",
+  "mrich-assessment-course2-v1",
+  "mrich-assessment-v1", // backward compat ของเก่า
+];
+
+// formId → course name (ตรงกับที่ UI ใช้ใน detectCourse / stateKey)
+const FORM_TO_COURSE: Record<string, string> = {
+  "mrich-assessment-course1-v1": "mindset-principles",
+  "mrich-assessment-course2-v1": "proactive",
+  "mrich-assessment-v1":         "mindset-principles", // legacy fallback
+};
+
+function normalizeNick(v: string) {
+  return (v || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// อ่าน role จาก env 3 ระดับ
+function getRoleFromNick(nick: string): "ADMIN" | "LEADER" | "LEARNER" {
+  const u = normalizeNick(nick);
+  const parse = (key: string) =>
+    (process.env[key] || "").split(",").map((s) => normalizeNick(s)).filter(Boolean);
+  if (parse("ADMIN_NAMES").includes(u)) return "ADMIN";
+  if (parse("LEADER_NAMES").includes(u)) return "LEADER";
+  return "LEARNER";
+}
 
 export async function GET() {
-  // ✅ auth จาก cookie nick
   const nick = await getNickFromCookie();
-  if (!nick) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  if (!isNickAdmin(nick)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
+  if (!nick) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!isNickAdmin(nick)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-  // ✅ responses (เหมือนของเดิม)
-  const responses = await prisma.response.findMany({
-    where: { formId: FORM_ID },
+  // ── 1. Responses (ทุก formId ที่รองรับ) ──────────────────────────────────
+  const rawResponses = await prisma.response.findMany({
+    where: { formId: { in: FORM_IDS } },
     orderBy: { createdAt: "desc" },
-    take: 300,
+    take: 500,
     select: {
       id: true,
       createdAt: true,
@@ -30,35 +51,72 @@ export async function GET() {
       percent: true,
       level: true,
       tip: true,
-      user: { select: { email: true, role: true, name: true } },
+      name: true,
+      formId: true,
+      userId: true,
       answersJson: true,
+      user: { select: { name: true, role: true } },
     },
   });
 
-  // ✅ states -> stateMap (เหมือนของเดิม)
+  // แปลง role เป็น 3 ระดับ และเพิ่ม course field
+  const responses = rawResponses.map((r) => {
+    const answersJson = r.answersJson as any;
+    const course =
+      answersJson?.course ??             // ถ้า submit ใหม่จะมี field นี้
+      FORM_TO_COURSE[r.formId] ??        // fallback จาก formId
+      "mindset-principles";
+
+    const displayName = r.user?.name ?? r.name ?? "";
+    const nickNorm = normalizeNick(displayName);
+    const roleFromEnv = nickNorm ? getRoleFromNick(nickNorm) : "LEARNER";
+
+    return {
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      course,
+      user: r.user ? { name: r.user.name, role: roleFromEnv } : null,
+    };
+  });
+
+  // ── 2. ExamStates → stateMap  key = "nick:course" ────────────────────────
+  // UI ทั้ง 2 client ใช้ key แบบนี้:
+  //   const key = `${normalizeNick(displayName)}:${course}`
   const states = await prisma.examState.findMany({
-    where: { formId: FORM_ID },
+    where: { formId: { in: FORM_IDS } },
     select: {
       locked: true,
       startedAt: true,
       updatedAt: true,
-      user: { select: { email: true, role: true } },
+      formId: true,
+      user: { select: { name: true, role: true } },
     },
   });
 
   const stateMap: Record<
     string,
-    { role: "USER" | "ADMIN"; locked: boolean; startedAt: string | null; updatedAt: string }
+    {
+      role: "ADMIN" | "LEADER" | "LEARNER";
+      locked: boolean;
+      startedAt: string | null;
+      updatedAt: string;
+    }
   > = {};
 
   for (const s of states) {
-    const email = (s.user?.email ?? "").toLowerCase();
-    if (!email) continue;
-    stateMap[email] = {
-      role: s.user.role,
+    const name = normalizeNick(s.user?.name ?? "");
+    if (!name) continue;
+
+    const course = FORM_TO_COURSE[s.formId] ?? "mindset-principles";
+    const key = `${name}:${course}`;        // ✅ ตรงกับ UI เป๊ะ
+
+    const roleFromEnv = getRoleFromNick(name);
+
+    stateMap[key] = {
+      role: roleFromEnv,
       locked: s.locked,
-      startedAt: s.startedAt ? new Date(s.startedAt).toISOString() : null,
-      updatedAt: new Date(s.updatedAt).toISOString(),
+      startedAt: s.startedAt ? s.startedAt.toISOString() : null,
+      updatedAt: s.updatedAt.toISOString(),
     };
   }
 
