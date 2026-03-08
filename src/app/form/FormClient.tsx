@@ -297,7 +297,6 @@ export default function FormClient() {
     if (!state.expiresAt) return false;
     if (locked) return false;
     if (submitOk !== undefined) return false;
-    if (!isExpired) return false;
     return true;
   }, [state, locked, submitOk, isExpired]);
 
