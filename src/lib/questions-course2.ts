@@ -193,4 +193,4 @@ export function levelFromPercent(pct: number) {
   return { level: "REPEAT", tip: "ทำได้น้อยกว่า 79% ❌ เรียนซ้ำ" };
 }
 
-export const EXAM_MINUTES = 30;
+export const EXAM_MINUTES = 35;
