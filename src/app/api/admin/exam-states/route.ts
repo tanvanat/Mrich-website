@@ -3,7 +3,7 @@ import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
 const FORM_ID = "mrich-assessment-v1";
-const EXAM_MINUTES = 30;
+const EXAM_MINUTES = 35;
 
 export async function GET(req: Request) {
   const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
