@@ -197,7 +197,7 @@ export default function HomePage() {
       {
         id: 2,
         title: "Course 2",
-        subtitle: "แบบทดสอบ Proactive",
+        subtitle: "Proactive",
         accent: "from-sky-500/25 to-blue-500/10",
         access: "LEADER_ONLY",
         slug: "proactive",

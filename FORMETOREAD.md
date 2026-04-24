@@ -24,5 +24,4 @@ https://myaccount.google.com/apppasswords?pli=1&rapt=AEjHL4ND7pJhcFMYTZ6hvicKXiz
 
 สิ่งที่ต้องเเก้ต่อ:
 
-1.ให้ที่lockไว้/เคยทำcourse1 ไปเเล้ว รวมถึงleaderจะไม่สามารถทำซ้ำอีกได้/กดเข้าไปดูได้
-2.เเก้โค้ดให้เสร็จเเล้วuserสามารถกดส่งเองได้ไม่ต้องรอเวลาหมด เเต่ก็ยังคงทำได้เเค่ครั้งเดียวจนกว่าจะมีadminมาunlock
+
