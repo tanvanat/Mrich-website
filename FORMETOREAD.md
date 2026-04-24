@@ -25,3 +25,5 @@ https://myaccount.google.com/apppasswords?pli=1&rapt=AEjHL4ND7pJhcFMYTZ6hvicKXiz
 สิ่งที่ต้องเเก้ต่อ:
 
 
+เเก้ไขเวลาทำข้อสอบ:
+src/app/api/exam/state/route.ts
