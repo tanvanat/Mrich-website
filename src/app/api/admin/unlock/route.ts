@@ -1,13 +1,17 @@
 // src/app/api/admin/unlock/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getNickFromCookie, isNickAdmin, getOrCreateUserByNick } from "@/lib/auth";
+import {
+  getNickFromCookie,
+  isNickAdmin,
+  getOrCreateUserByNick,
+} from "@/lib/auth";
 
 // ✅ รองรับทุก course
 const COURSE_FORM_MAP: Record<string, string> = {
   "mindset-principles": "mrich-assessment-course1-v1",
-  "proactive":          "mrich-assessment-course2-v1",
-  "default":            "mrich-assessment-v1",
+  proactive: "mrich-assessment-course2-v1",
+  default: "mrich-assessment-v1",
 };
 
 function getAllFormIds() {
@@ -20,11 +24,16 @@ function newAttemptToken() {
 
 export async function POST(req: Request) {
   const adminNick = await getNickFromCookie();
-  if (!adminNick) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!isNickAdmin(adminNick)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!adminNick)
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!isNickAdmin(adminNick))
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const nickname = String(body?.nickname ?? "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  const nickname = String(body?.nickname ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
   const course = String(body?.course ?? "").trim();
 
   if (!nickname) {
@@ -39,6 +48,16 @@ export async function POST(req: Request) {
       ? [COURSE_FORM_MAP[course]]
       : getAllFormIds();
 
+  // ✅ เพิ่มตรงนี้
+  // ลบคำตอบเก่า เพื่อให้ทำใหม่ได้
+  await prisma.response.deleteMany({
+    where: {
+      userId: user.id,
+      formId: {
+        in: formIds,
+      },
+    },
+  });
   await Promise.all(
     formIds.map((formId) =>
       prisma.examState.upsert({
@@ -55,8 +74,8 @@ export async function POST(req: Request) {
           startedAt: null,
           locked: false,
         },
-      })
-    )
+      }),
+    ),
   );
 
   return NextResponse.json({ ok: true, nickname, unlockedFormIds: formIds });

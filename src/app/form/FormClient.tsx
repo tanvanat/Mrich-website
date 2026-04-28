@@ -54,40 +54,6 @@ function titleForQuestion(raw: string, index1: number) {
   return `${index1}) ${s}`;
 }
 
-function patchCourse1Questions(qs: AnyQuestion[]) {
-  const next = qs.map((q) => ({ ...q }));
-
-  const replacements: Record<number, string> = {
-    5: `5. ถ้าต้องการเปลี่ยนแปลงชีวิต กระดุมเม็ดแรกที่ต้องเปลี่ยนคืออะไร?`,
-    25: `25. การทำ P/PC ให้สมดุลคือทำอะไร?`,
-    26: `26. สินทรัพย์ที่เป็น "ทรัพย์สิน" ที่เราต้องสะสมให้มากมีกี่อย่าง อะไรบ้าง?`,
-  };
-
-  const leadNo = (s: string) => {
-    const m = String(s ?? "").trim().match(/^(\d+)\s*[.)]/);
-    return m ? Number(m[1]) : null;
-  };
-
-  const done = new Set<number>();
-  for (let i = 0; i < next.length; i++) {
-    const n = leadNo(next[i]?.q);
-    if (n && replacements[n]) {
-      next[i].q = replacements[n];
-      done.add(n);
-    }
-  }
-
-  const fallbackIndexMap: Record<number, number> = { 5: 4, 25: 24, 26: 25 };
-  for (const nStr of Object.keys(replacements)) {
-    const n = Number(nStr);
-    if (done.has(n)) continue;
-    const idx = fallbackIndexMap[n];
-    if (idx >= 0 && idx < next.length) next[idx].q = replacements[n];
-  }
-
-  return next;
-}
-
 function getCourseConfig(course: string | null) {
   const normalized = (course ?? "mindset-principles") as CourseSlug;
 
@@ -103,7 +69,7 @@ function getCourseConfig(course: string | null) {
   return {
     slug: "mindset-principles" as CourseSlug,
     title: "แบบทดสอบกรอบความคิดและหลักการ",
-    questions: patchCourse1Questions(course1Questions as AnyQuestion[]),
+    questions: course1Questions as AnyQuestion[],
     maxTotal: course1MaxTotal,
   };
 }
@@ -283,7 +249,6 @@ export default function FormClient() {
     return locked || submitOk !== undefined;
   }, [state, locked, submitOk]);
 
-  // ✅ FIX: ลบ !isExpired ออก → กดส่งได้ทันที ไม่ต้องรอหมดเวลา
   const canSubmit = useMemo(() => {
     if (!state) return false;
     if (!state.expiresAt) return false;
@@ -422,7 +387,6 @@ export default function FormClient() {
       ? "bg-red-500/15 border-red-300/25 text-red-100"
       : "bg-blue-500/15 border-blue-300/25 text-blue-100";
 
-  // ✅ FIX: ไม่มี "รอหมดเวลา" อีกต่อไป
   const submitLabel = loading
     ? "กำลังส่ง..."
     : locked || submitOk
@@ -641,7 +605,6 @@ export default function FormClient() {
               ตอบแล้ว {answeredCount}/{questions.length}
             </div>
 
-            {/* ✅ FIX: ปุ่มส่ง ไม่มี "รอหมดเวลา" แล้ว กดส่งได้ทันที */}
             <button
               onClick={() => submit()}
               disabled={!canSubmit || loading}
