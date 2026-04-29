@@ -48,16 +48,7 @@ export async function POST(req: Request) {
       ? [COURSE_FORM_MAP[course]]
       : getAllFormIds();
 
-  // ✅ เพิ่มตรงนี้
-  // ลบคำตอบเก่า เพื่อให้ทำใหม่ได้
-  await prisma.response.deleteMany({
-    where: {
-      userId: user.id,
-      formId: {
-        in: formIds,
-      },
-    },
-  });
+  
   await Promise.all(
     formIds.map((formId) =>
       prisma.examState.upsert({
