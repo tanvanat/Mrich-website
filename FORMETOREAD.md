@@ -23,7 +23,22 @@ https://myaccount.google.com/apppasswords?pli=1&rapt=AEjHL4ND7pJhcFMYTZ6hvicKXiz
 
 
 สิ่งที่ต้องเเก้ต่อ:
--เเก้ให้adminปลดล็อดข้อสอบให้role leaderได้
+-ปัญหาเรื่องadminกดunlockเเล้ว userนั้นไม่ได้ถูกunlockจริง
+-ทำไม 1 userIdมีหลายเเถวในexamstate
+-หน้าadmin dashboardถ้ายังไม่ได้ตรวจให้เเสดง"-"ตรวจเเล้วค่อยเเสดงคะเเนนจาก/100
+-ให้userเข้ามาเเล้วเห็นคะเเนน สอบครั้งที่1ทำได้กี่คะเเนน ครั้งที่2ทำได้กี่คะเเนน
 
 เเก้ไขเวลาทำข้อสอบ:
 src/app/api/exam/state/route.ts
+
+username=friend 1.locked=true 2.true 3.false, startedAt=NULL
+
+
+cmm5tsjk4000004jgu1e3gq6e test141 ลบ
+cmm1wcdhw000004l2kghrotw3 front ลบ course1=81 course2=80
+cmm5v8gc0000004lem5f4a64h admin141 ลบ
+cmm5st90c000004jorqhm201j bukae34 88
+cmm48yi3w000004l4ny6utn8k mrich ลบ
+cmm3nfqjq000004k1cgm385g2 friend course1=91 course2=90
+cmm54hh7u000104l1xqwxf09n noey 
+cmm4ud1vc000004k0z9g8yqt5 suthida 

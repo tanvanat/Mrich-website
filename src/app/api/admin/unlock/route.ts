@@ -7,7 +7,6 @@ import {
   getOrCreateUserByNick,
 } from "@/lib/auth";
 
-// ✅ รองรับทุก course
 const COURSE_FORM_MAP: Record<string, string> = {
   "mindset-principles": "mrich-assessment-course1-v1",
   proactive: "mrich-assessment-course2-v1",
@@ -16,10 +15,6 @@ const COURSE_FORM_MAP: Record<string, string> = {
 
 function getAllFormIds() {
   return Object.values(COURSE_FORM_MAP);
-}
-
-function newAttemptToken() {
-  return crypto.randomUUID();
 }
 
 export async function POST(req: Request) {
@@ -42,31 +37,28 @@ export async function POST(req: Request) {
 
   const user = await getOrCreateUserByNick(nickname);
 
-  // ระบุ course → unlock เฉพาะ formId นั้น / ไม่ระบุ → unlock ทุก course
   const formIds =
     course && COURSE_FORM_MAP[course]
       ? [COURSE_FORM_MAP[course]]
       : getAllFormIds();
 
-  
+  // ✅ deleteMany ทุก duplicate แล้ว create ใหม่สะอาดทีละ formId
   await Promise.all(
-    formIds.map((formId) =>
-      prisma.examState.upsert({
-        where: { userId_formId: { userId: user.id, formId } },
-        create: {
+    formIds.map(async (formId) => {
+      await prisma.examState.deleteMany({
+        where: { userId: user.id, formId },
+      });
+      await prisma.examState.create({
+        data: {
           userId: user.id,
           formId,
-          attemptToken: newAttemptToken(),
+          attemptToken: crypto.randomUUID(),
           startedAt: null,
+          expiresAt: null,
           locked: false,
         },
-        update: {
-          attemptToken: newAttemptToken(),
-          startedAt: null,
-          locked: false,
-        },
-      }),
-    ),
+      });
+    }),
   );
 
   return NextResponse.json({ ok: true, nickname, unlockedFormIds: formIds });

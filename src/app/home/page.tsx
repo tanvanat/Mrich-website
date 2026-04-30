@@ -19,17 +19,23 @@ type MeResp =
     }
   | { authed: false };
 
-type ScoreData = {
+// ✅ เปลี่ยนจาก ScoreData เดิม → CourseScore array
+type CourseScore = {
+  slug: string;
+  label: string;
+  formId: string;
   hasScore: boolean;
   totalScore?: number;
   maxScore?: number;
   percent?: number;
-  message?: string;
+  updatedAt?: string;
 };
 
-// ✅ locked state ต่อ course จาก DB จริง
-type LockedMap = Record<string, boolean>; // key = course slug
+type ScoreResp = {
+  scores: CourseScore[];
+};
 
+type LockedMap = Record<string, boolean>;
 type CourseAccess = "BOTH" | "LEADER_ONLY";
 
 type CourseItem = {
@@ -42,10 +48,9 @@ type CourseItem = {
   description: string;
 };
 
-// formId ของแต่ละ course slug
 const COURSE_FORM_MAP: Record<string, string> = {
   "mindset-principles": "mrich-assessment-course1-v1",
-  "proactive":          "mrich-assessment-course2-v1",
+  proactive: "mrich-assessment-course2-v1",
 };
 
 function FlowerBackground() {
@@ -53,16 +58,35 @@ function FlowerBackground() {
     <>
       <style jsx global>{`
         @keyframes flowerFloat {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-18px) rotate(4deg); }
+          0%,
+          100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-18px) rotate(4deg);
+          }
         }
         @keyframes casper-float-in-out {
-          0%   { transform: translateX(150%) translateY(0) scale(0.7); opacity: 0; }
-          15%  { transform: translateX(0) translateY(-30px) scale(1); opacity: 1; }
-          70%  { transform: translateX(0) translateY(-60px) scale(1); opacity: 1; }
-          100% { transform: translateX(-180%) translateY(-100px) scale(0.6); opacity: 0; }
+          0% {
+            transform: translateX(150%) translateY(0) scale(0.7);
+            opacity: 0;
+          }
+          15% {
+            transform: translateX(0) translateY(-30px) scale(1);
+            opacity: 1;
+          }
+          70% {
+            transform: translateX(0) translateY(-60px) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(-180%) translateY(-100px) scale(0.6);
+            opacity: 0;
+          }
         }
-        .animate-casper-float-in-out { animation: casper-float-in-out 8.5s ease-in-out forwards; }
+        .animate-casper-float-in-out {
+          animation: casper-float-in-out 8.5s ease-in-out forwards;
+        }
       `}</style>
 
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -70,7 +94,13 @@ function FlowerBackground() {
           <svg width="280" height="280" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[0, 60, 120, 180, 240, 300].map((deg, i) => (
-                <ellipse key={i} rx="20" ry="35" fill="#3b82f6" transform={`rotate(${deg})`} />
+                <ellipse
+                  key={i}
+                  rx="20"
+                  ry="35"
+                  fill="#3b82f6"
+                  transform={`rotate(${deg})`}
+                />
               ))}
               <circle r="12" fill="#1e3a8a" />
               <circle r="7" fill="#93c5fd" />
@@ -81,7 +111,13 @@ function FlowerBackground() {
           <svg width="250" height="250" viewBox="0 0 100 100">
             <g transform="translate(50,50)">
               {[0, 72, 144, 216, 288].map((deg, i) => (
-                <ellipse key={i} rx="18" ry="31" fill="#60a5fa" transform={`rotate(${deg})`} />
+                <ellipse
+                  key={i}
+                  rx="18"
+                  ry="31"
+                  fill="#60a5fa"
+                  transform={`rotate(${deg})`}
+                />
               ))}
               <circle r="10" fill="#1e40af" />
               <circle r="6" fill="#bfdbfe" />
@@ -97,10 +133,11 @@ export default function HomePage() {
   const router = useRouter();
 
   const [me, setMe] = useState<MeResp | null>(null);
-  const [score, setScore] = useState<ScoreData | null>(null);
+
+  // ✅ เปลี่ยนจาก score เดี่ยว → scores array แยกตาม course
+  const [scores, setScores] = useState<CourseScore[]>([]);
   const [loadingScore, setLoadingScore] = useState(true);
 
-  // ✅ lockedMap อ่านจาก DB ผ่าน /api/user/locked-courses
   const [lockedMap, setLockedMap] = useState<LockedMap>({});
   const [loadingLocked, setLoadingLocked] = useState(true);
 
@@ -109,7 +146,6 @@ export default function HomePage() {
   const [userInteracted, setUserInteracted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // โหลด me
   useEffect(() => {
     fetch("/api/auth/me", { cache: "no-store", credentials: "include" })
       .then(async (res) => {
@@ -126,23 +162,24 @@ export default function HomePage() {
       });
   }, [router]);
 
-  // โหลดคะแนน
+  // ✅ โหลดคะแนนแยกทุก course
   useEffect(() => {
     if (!me || !me.authed) return;
     setLoadingScore(true);
     fetch("/api/user/score", { cache: "no-store", credentials: "include" })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data: ScoreData) => setScore(data))
-      .catch(() => setScore({ hasScore: false, message: "ยังไม่ได้รับการตรวจ" }))
+      .then((data: ScoreResp) => setScores(data.scores ?? []))
+      .catch(() => setScores([]))
       .finally(() => setLoadingScore(false));
   }, [me]);
 
-  // ✅ โหลด locked state จาก DB จริง (ไม่ใช้ sessionStorage อีกต่อไป)
   useEffect(() => {
     if (!me || !me.authed) return;
-
     setLoadingLocked(true);
-    fetch("/api/user/locked-courses", { cache: "no-store", credentials: "include" })
+    fetch("/api/user/locked-courses", {
+      cache: "no-store",
+      credentials: "include",
+    })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: LockedMap) => setLockedMap(data))
       .catch(() => setLockedMap({}))
@@ -177,7 +214,10 @@ export default function HomePage() {
     };
   }, [userInteracted]);
 
-  const userLabel = useMemo(() => (me && me.authed ? me.nick : "unknown"), [me]);
+  const userLabel = useMemo(
+    () => (me && me.authed ? me.nick : "unknown"),
+    [me]
+  );
 
   const isAdmin = me?.authed === true && me.permissions.canAccessAdmin;
   const canLeader = me?.authed === true && me.permissions.canAccessLeaderExam;
@@ -214,10 +254,14 @@ export default function HomePage() {
     return false;
   }
 
-  // ✅ อ่านจาก lockedMap (DB) แทน sessionStorage
   function isCourseSubmitted(slug: string) {
-    if (isAdmin) return false; // ADMIN กดได้เสมอ
+    if (isAdmin) return false;
     return !!lockedMap[slug];
+  }
+
+  // ✅ helper ดึงคะแนนของแต่ละ course slug
+  function getCourseScore(slug: string): CourseScore | undefined {
+    return scores.find((s) => s.slug === slug);
   }
 
   function openCourse(course: CourseItem) {
@@ -271,26 +315,55 @@ export default function HomePage() {
                 </div>
                 <div className="mt-3 text-lg text-blue-200/85">
                   Signed in as:{" "}
-                  <span className="text-blue-100 font-semibold">{userLabel}</span>
+                  <span className="text-blue-100 font-semibold">
+                    {userLabel}
+                  </span>
                 </div>
                 <div className="mt-1 text-sm text-cyan-300/90">
                   Role: {me.authed ? me.role : "-"}
                 </div>
-                <div className="mt-5">
+
+                {/* ✅ แสดงคะแนนแยกทุก course */}
+                <div className="mt-5 flex flex-col gap-2">
                   {loadingScore ? (
-                    <div className="text-blue-300 text-sm">กำลังโหลดคะแนน...</div>
-                  ) : score?.hasScore ? (
-                    <div className="text-lg font-medium text-white">
-                      คะแนนล่าสุด:{" "}
-                      <span className="text-cyan-300 font-bold">
-                        {score.totalScore} / {score.maxScore}
-                      </span>{" "}
-                      <span className="text-cyan-400 font-semibold">({score.percent}%)</span>
+                    <div className="text-blue-300 text-sm">
+                      กำลังโหลดคะแนน...
+                    </div>
+                  ) : scores.length === 0 ? (
+                    <div className="text-amber-300 text-sm font-medium">
+                      ยังไม่ได้รับการตรวจ
                     </div>
                   ) : (
-                    <div className="text-amber-300 text-sm font-medium">
-                      {score?.message || "ยังไม่ได้รับการตรวจ"}
-                    </div>
+                    scores.map((s) =>
+                      s.hasScore ? (
+                        <div
+                          key={s.slug}
+                          className="flex items-center gap-3 text-sm"
+                        >
+                          <span className="text-blue-300/70 font-medium min-w-[68px]">
+                            {s.label}:
+                          </span>
+                          <span className="text-white font-bold">
+                            {s.totalScore} / {s.maxScore}
+                          </span>
+                          <span className="text-cyan-400 font-semibold">
+                            ({s.percent}%)
+                          </span>
+                        </div>
+                      ) : (
+                        <div
+                          key={s.slug}
+                          className="flex items-center gap-3 text-sm"
+                        >
+                          <span className="text-blue-300/70 font-medium min-w-[68px]">
+                            {s.label}:
+                          </span>
+                          <span className="text-amber-300/80">
+                            ยังไม่ได้รับการตรวจ
+                          </span>
+                        </div>
+                      )
+                    )
                   )}
                 </div>
               </div>
@@ -320,7 +393,9 @@ export default function HomePage() {
         <div className="mt-12">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
-              <div className="text-3xl font-bold text-white font-serif">Your Courses</div>
+              <div className="text-3xl font-bold text-white font-serif">
+                Your Courses
+              </div>
               <div className="mt-2 text-sm text-blue-200/65">
                 เลือกคอร์สที่ต้องการเริ่มทำแบบประเมิน
               </div>
@@ -330,17 +405,21 @@ export default function HomePage() {
           <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
             {courses.map((c) => {
               const unlocked = canAccessCourse(c.access);
-              // ✅ submitted อ่านจาก DB (lockedMap) ไม่ใช่ sessionStorage
               const submitted = isCourseSubmitted(c.slug);
               const disabled = !unlocked || submitted;
               const isLoading = loadingLocked && !isAdmin;
+
+              // ✅ ดึงคะแนนของ course นี้โดยเฉพาะ
+              const courseScore = getCourseScore(c.slug);
 
               return (
                 <div
                   key={c.id}
                   className="group relative rounded-[28px] border border-blue-300/20 bg-white/5 backdrop-blur-xl shadow-2xl overflow-hidden"
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${c.accent}`} />
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${c.accent}`}
+                  />
 
                   <div className="relative p-7">
                     <div className="flex items-start justify-between gap-4">
@@ -348,7 +427,29 @@ export default function HomePage() {
                         <div className="text-3xl font-bold text-white tracking-tight">
                           {c.title}
                         </div>
-                        <div className="mt-2 text-base text-blue-100/80">{c.subtitle}</div>
+                        <div className="mt-2 text-base text-blue-100/80">
+                          {c.subtitle}
+                        </div>
+
+                        {/* ✅ แสดงคะแนนของ course นี้ใต้ subtitle */}
+                        {!loadingScore && courseScore?.hasScore && (
+                          <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-1.5 text-sm">
+                            <span className="text-blue-200/70">คะแนน:</span>
+                            <span className="text-white font-bold">
+                              {courseScore.totalScore} / {courseScore.maxScore}
+                            </span>
+                            <span className="text-cyan-400 font-semibold">
+                              ({courseScore.percent}%)
+                            </span>
+                          </div>
+                        )}
+                        {!loadingScore &&
+                          submitted &&
+                          !courseScore?.hasScore && (
+                            <div className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-1.5 text-sm text-amber-300/80">
+                              รอการตรวจ
+                            </div>
+                          )}
                       </div>
                     </div>
 

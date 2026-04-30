@@ -3,53 +3,69 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getNickFromCookie, getOrCreateUserByNick } from "@/lib/auth";
 
-// ✅ รองรับทุก course
-const FORM_IDS = [
-  "mrich-assessment-course1-v1",
-  "mrich-assessment-course2-v1",
-  "mrich-assessment-v1", // legacy
+const COURSE_CONFIG = [
+  {
+    slug: "mindset-principles",
+    formId: "mrich-assessment-course1-v1",
+    label: "Course 1",
+  },
+  {
+    slug: "proactive",
+    formId: "mrich-assessment-course2-v1",
+    label: "Course 2",
+  },
 ];
+
+export type CourseScore = {
+  slug: string;
+  label: string;
+  formId: string;
+  hasScore: boolean;
+  totalScore?: number;
+  maxScore?: number;
+  percent?: number;
+  updatedAt?: string;
+};
 
 export async function GET() {
   const nick = await getNickFromCookie();
-  if (!nick) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!nick)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const user = await getOrCreateUserByNick(nick);
 
-  // ดึง response ล่าสุดของ user จากทุก course
-  const latestResponse = await prisma.response.findFirst({
-    where: {
-      userId: user.id,
-      formId: { in: FORM_IDS },
-    },
-    orderBy: { createdAt: "desc" },
-    select: {
-      totalScore: true,
-      maxScore: true,
-      percent: true,
-      formId: true,
-      updatedAt: true,
-    },
-  });
+  // ดึง response ล่าสุดของแต่ละ course แยกกัน
+  const scores: CourseScore[] = await Promise.all(
+    COURSE_CONFIG.map(async ({ slug, formId, label }) => {
+      const response = await prisma.response.findFirst({
+        where: { userId: user.id, formId },
+        orderBy: { createdAt: "desc" },
+        select: {
+          totalScore: true,
+          maxScore: true,
+          percent: true,
+          updatedAt: true,
+        },
+      });
 
-  if (!latestResponse) {
-    return NextResponse.json({ hasScore: false, message: "ยังไม่ได้รับการตรวจ" });
-  }
+      if (!response || response.totalScore === 0) {
+        return { slug, label, formId, hasScore: false };
+      }
 
-  // ถ้า totalScore ยังเป็น 0 (ส่งแล้วแต่ยังไม่ได้ให้คะแนน)
-  if (latestResponse.totalScore === 0) {
-    return NextResponse.json({ hasScore: false, message: "ยังไม่ได้รับการตรวจ" });
-  }
+      return {
+        slug,
+        label,
+        formId,
+        hasScore: true,
+        totalScore: response.totalScore,
+        maxScore: response.maxScore,
+        percent:
+          response.percent ??
+          Math.round((response.totalScore / response.maxScore) * 100),
+        updatedAt: response.updatedAt.toISOString(),
+      };
+    })
+  );
 
-  const percent =
-    latestResponse.percent ??
-    Math.round((latestResponse.totalScore / latestResponse.maxScore) * 100);
-
-  return NextResponse.json({
-    hasScore: true,
-    totalScore: latestResponse.totalScore,
-    maxScore: latestResponse.maxScore,
-    percent,
-    updatedAt: latestResponse.updatedAt,
-  });
+  return NextResponse.json({ scores });
 }
