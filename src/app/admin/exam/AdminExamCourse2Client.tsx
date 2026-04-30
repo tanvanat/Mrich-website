@@ -80,9 +80,12 @@ function stateKeyFromRow(r: Row) {
   return `${name}:${course}`;
 }
 
-// ✅ helper: ตรวจว่า graded แล้วหรือยัง
+// ✅ helper: ตรวจว่า admin ให้คะแนนแล้วหรือยัง
+// เช็คจาก answersJson.scores ที่ถูก save โดย admin เท่านั้น
+// (totalScore อาจเป็น 0 ตั้งแต่ตอน submit ได้ จึงใช้ไม่ได้)
 function isGraded(r: Row): boolean {
-  return r.totalScore !== null && r.totalScore !== undefined;
+  const scores = r.answersJson?.scores;
+  return Array.isArray(scores) && scores.length > 0;
 }
 
 export default function AdminExamCourse2Client() {
