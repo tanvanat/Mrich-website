@@ -9,9 +9,9 @@ type UserRole = "LEARNER" | "LEADER" | "ADMIN";
 type Row = {
   id: string;
   createdAt: string;
-  totalScore: number;
-  maxScore: number;
-  percent: number;
+  totalScore: number | null;
+  maxScore: number | null;
+  percent: number | null;
   level: string;
   tip: string;
   name?: string | null;
@@ -103,6 +103,11 @@ function getStateMapKey(r: Row) {
   const nick = normalizeNick(getDisplayName(r));
   const course = detectCourse(r) ?? COURSE;
   return `${nick}:${course}`;
+}
+
+// ✅ helper: ตรวจว่า graded แล้วหรือยัง
+function isGraded(r: Row): boolean {
+  return r.totalScore !== null && r.totalScore !== undefined;
 }
 
 export default function AdminExamClient() {
@@ -364,9 +369,18 @@ export default function AdminExamClient() {
                           </button>
                         )}
                       </td>
-                      <td className="p-4 font-semibold text-cyan-300">
-                        {r.totalScore} / {r.maxScore}
+
+                      {/* ✅ แก้ตรงนี้: ยังไม่ตรวจ = "-", ตรวจแล้ว = "percent / 100" */}
+                      <td className="p-4 font-semibold text-center">
+                        {!isGraded(r) ? (
+                          <span className="text-blue-400/50 text-lg">—</span>
+                        ) : (
+                          <span className="text-cyan-300">
+                            {r.percent} / 100
+                          </span>
+                        )}
                       </td>
+
                       <td className="p-4">{role}</td>
                     </tr>
                   );

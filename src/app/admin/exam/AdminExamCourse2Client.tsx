@@ -9,9 +9,9 @@ type UserRole = "LEARNER" | "LEADER" | "ADMIN";
 type Row = {
   id: string;
   createdAt: string;
-  totalScore: number;
-  maxScore: number;
-  percent: number;
+  totalScore: number | null;
+  maxScore: number | null;
+  percent: number | null;
   level: string;
   tip: string;
   name?: string | null;
@@ -78,6 +78,11 @@ function stateKeyFromRow(r: Row) {
   const name = normalizeNick(getDisplayName(r));
   const course = detectCourse(r) ?? COURSE;
   return `${name}:${course}`;
+}
+
+// ✅ helper: ตรวจว่า graded แล้วหรือยัง
+function isGraded(r: Row): boolean {
+  return r.totalScore !== null && r.totalScore !== undefined;
 }
 
 export default function AdminExamCourse2Client() {
@@ -254,9 +259,6 @@ export default function AdminExamCourse2Client() {
                   const locked = data?.stateMap?.[rowKey]?.locked ?? false;
                   const role = data?.stateMap?.[rowKey]?.role ?? r.user?.role ?? "LEARNER";
                   const nickname = normalizeNick(getDisplayName(r));
-
-                  // ✅ FIX: แสดงปุ่ม Unlock ทุก non-ADMIN ที่มี response แล้ว
-                  // ไม่ต้องเช็ค locked เพราะ submit route เดิมไม่ได้ lock LEADER
                   const showUnlock = isAdmin && role !== "ADMIN" && !!nickname;
 
                   return (
@@ -280,7 +282,6 @@ export default function AdminExamCourse2Client() {
                           >
                             ดู & ให้คะแนน
                           </button>
-                          {/* ✅ ปุ่ม Unlock สำหรับทุก non-ADMIN ที่ส่งแล้ว */}
                           {showUnlock && (
                             <button
                               onClick={() => unlockByNickname(nickname)}
@@ -296,7 +297,18 @@ export default function AdminExamCourse2Client() {
                           )}
                         </div>
                       </td>
-                      <td className="p-4 font-semibold text-cyan-300">{r.totalScore} / {r.maxScore}</td>
+
+                      {/* ✅ แก้ตรงนี้: ยังไม่ตรวจ = "-", ตรวจแล้ว = "percent / 100" */}
+                      <td className="p-4 font-semibold text-center">
+                        {!isGraded(r) ? (
+                          <span className="text-blue-400/50 text-lg">—</span>
+                        ) : (
+                          <span className="text-cyan-300">
+                            {r.percent} / 100
+                          </span>
+                        )}
+                      </td>
+
                       <td className="p-4">{role}</td>
                     </tr>
                   );
@@ -312,7 +324,6 @@ export default function AdminExamCourse2Client() {
         </div>
       </div>
 
-      {/* Modal ให้คะแนน */}
       {openRow && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
