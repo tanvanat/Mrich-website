@@ -34,7 +34,6 @@ type AnyQuestion = {
   q: string;
   minChars?: number;
   minItems?: number;
-  hint?: string;
 };
 
 function pad2(n: number) {
@@ -613,19 +612,6 @@ export default function FormClient() {
                     </span>
                   )}
                 </div>
-
-                {q.hint && (
-                  <div className="mt-2 text-xs sm:text-sm text-blue-200/70">
-                    Hint: {q.hint}
-                  </div>
-                )}
-
-                {/* ✅ เพิ่ม: hint ว่าถ้าไม่รู้ให้พิมพ์ "ไม่รู้" */}
-                {isUnanswered && (
-                  <div className="mt-2 text-xs text-red-300/80">
-                    💡 หากตอบไม่ได้ให้พิมพ์ว่า &quot;ไม่รู้&quot; ในช่องคำตอบ
-                  </div>
-                )}
 
                 <textarea
                   value={answers[qIdx] ?? ""}
