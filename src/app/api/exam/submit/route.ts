@@ -13,12 +13,11 @@ import {
   scoreAnswer as scoreAnswerCourse2,
   levelFromPercent as levelFromPercentCourse2,
 } from "@/lib/questions-course2";
-import { getNickFromCookie, getOrCreateUserByNick, isNickAdmin } from "@/lib/auth";
+import { getNickFromCookie, getOrCreateUserByNick } from "@/lib/auth";
 import crypto from "crypto";
 
 const EXAM_MINUTES = 30;
 
-// ✅ อ่าน role จาก env เหมือน exam/state
 function getRoleFromEnv(nick: string): "ADMIN" | "LEADER" | "LEARNER" {
   const normalize = (s: string) =>
     s.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
@@ -62,7 +61,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
 
-    // ✅ FIX: ใช้ role จาก env (ADMIN / LEADER / LEARNER) แทน role เดิมที่แค่ USER/ADMIN
     const role = getRoleFromEnv(nick);
     const isAdmin = role === "ADMIN";
 
@@ -75,6 +73,7 @@ export async function POST(req: Request) {
     const config = getCourseConfig(course);
     const { formId, questions, maxTotal, scoreAnswer, levelFromPercent } = config;
 
+    // ✅ ตรวจจำนวนคำตอบ
     if (answers.length !== questions.length) {
       return NextResponse.json(
         {
@@ -87,6 +86,24 @@ export async function POST(req: Request) {
       );
     }
 
+    // ✅ เพิ่ม: ตรวจว่าไม่มีคำตอบที่ว่างเปล่า (เฉพาะ non-admin)
+    if (!isAdmin) {
+      const emptyIndexes = answers.reduce<number[]>((acc, ans, idx) => {
+        if (!ans || ans.trim() === "") acc.push(idx + 1); // +1 เพื่อแสดงเลขข้อจริง
+        return acc;
+      }, []);
+
+      if (emptyIndexes.length > 0) {
+        return NextResponse.json(
+          {
+            error: `กรุณาตอบให้ครบทุกข้อ ยังขาดข้อที่: ${emptyIndexes.join(", ")} — หากตอบไม่ได้ให้พิมพ์ "ไม่รู้"`,
+            emptyQuestions: emptyIndexes,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const state = await prisma.examState.findUnique({
       where: { userId_formId: { userId: user.id, formId } },
     });
@@ -95,7 +112,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "state not found" }, { status: 404 });
     }
 
-    // ✅ FIX: LEADER และ LEARNER ก็ต้อง block ถ้า locked แล้ว (ไม่ใช่แค่ USER)
     if (!isAdmin && state.locked) {
       return NextResponse.json({ error: "locked: already submitted" }, { status: 409 });
     }
@@ -141,14 +157,12 @@ export async function POST(req: Request) {
       },
     });
 
-    // ✅ FIX: lock สำหรับทุก role ที่ไม่ใช่ ADMIN (LEADER และ LEARNER)
     if (!isAdmin) {
       await prisma.examState.update({
         where: { id: state.id },
         data: { locked: true },
       });
     } else {
-      // ADMIN: reset ให้ทำใหม่ได้เสมอ
       await prisma.examState.update({
         where: { id: state.id },
         data: {

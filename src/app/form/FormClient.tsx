@@ -89,6 +89,9 @@ export default function FormClient() {
     Array(questions.length).fill("")
   );
 
+  // ✅ เพิ่ม: track ว่าข้อไหน error (ยังไม่ได้ตอบ)
+  const [unansweredIndexes, setUnansweredIndexes] = useState<Set<number>>(new Set());
+
   const [loading, setLoading] = useState(false);
   const [submitOk, setSubmitOk] = useState<SubmitOk | undefined>(undefined);
 
@@ -105,6 +108,9 @@ export default function FormClient() {
   const warningVideoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // ✅ เพิ่ม: ref สำหรับ scroll ไปหาข้อที่ยังไม่ตอบ
+  const questionRefs = useRef<(HTMLElement | null)[]>([]);
+
   const warningShownRef = useRef(false);
   const warningHideTimerRef = useRef<number | null>(null);
   const tenSecondAlarmPlayedRef = useRef(false);
@@ -115,6 +121,7 @@ export default function FormClient() {
     setState(null);
     setShowWarningCasper(false);
     setShowTimerAlert(false);
+    setUnansweredIndexes(new Set()); // ✅ reset error state ด้วย
     warningShownRef.current = false;
     tenSecondAlarmPlayedRef.current = false;
   }, [questions.length, course]);
@@ -259,6 +266,37 @@ export default function FormClient() {
 
   async function submit(opts?: { silent?: boolean }) {
     if (!canSubmit || loading) return;
+
+    // ✅ เพิ่ม: validate ว่าตอบครบทุกข้อหรือยัง (ยกเว้น silent = หมดเวลา)
+    if (!opts?.silent) {
+      const emptyIndexes = answers.reduce<number[]>((acc, ans, idx) => {
+        if (!ans || ans.trim() === "") acc.push(idx);
+        return acc;
+      }, []);
+
+      if (emptyIndexes.length > 0) {
+        // highlight ข้อที่ยังไม่ตอบ
+        setUnansweredIndexes(new Set(emptyIndexes));
+
+        // scroll ไปหาข้อแรกที่ยังไม่ตอบ
+        const firstEmpty = emptyIndexes[0];
+        questionRefs.current[firstEmpty]?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+
+        showToast(
+          "error",
+          `กรุณาตอบให้ครบทุกข้อ (ยังขาดอีก ${emptyIndexes.length} ข้อ) หากตอบไม่ได้ให้พิมพ์ "ไม่รู้"`,
+          5000
+        );
+        return; // ❌ หยุด ไม่ส่ง
+      }
+
+      // ✅ ถ้าตอบครบแล้ว clear error state
+      setUnansweredIndexes(new Set());
+    }
+
     setLoading(true);
 
     try {
@@ -350,6 +388,9 @@ export default function FormClient() {
   }
 
   const answeredCount = answers.filter((a) => a.trim().length > 0).length;
+
+  // ✅ เพิ่ม: ตรวจว่าตอบครบทุกข้อแล้วหรือยัง
+  const allAnswered = answeredCount === questions.length;
 
   const timerLabel = useMemo(() => {
     if (!state) return "กำลังโหลด...";
@@ -495,8 +536,17 @@ export default function FormClient() {
             <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
               คะแนนเต็ม: {maxTotal}
             </span>
-            <span className="px-3 py-1 rounded-full border border-blue-300/20 bg-white/5 text-xs font-bold">
+
+            {/* ✅ เปลี่ยน: แสดงสีตามสถานะว่าตอบครบหรือยัง */}
+            <span
+              className={`px-3 py-1 rounded-full border text-xs font-bold transition-colors ${
+                allAnswered
+                  ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-300"
+                  : "bg-white/5 border-blue-300/20 text-blue-100"
+              }`}
+            >
               ตอบแล้ว: {answeredCount}/{questions.length}
+              {allAnswered && " ✅"}
             </span>
 
             {(state?.role === "LEARNER" || state?.role === "LEADER") && (
@@ -535,40 +585,84 @@ export default function FormClient() {
         <div className="h-8" />
 
         <div className="space-y-5 pb-12">
-          {questions.map((q, qIdx) => (
-            <section
-              key={q.id}
-              className="rounded-2xl border border-blue-300/15 bg-white/5 backdrop-blur-xl p-5 shadow-xl"
-              style={{ opacity: isLockedForInput ? 0.88 : 1 }}
-            >
-              <div className="font-extrabold text-blue-50 text-base sm:text-lg">
-                {titleForQuestion(q.q, qIdx + 1)}
-              </div>
+          {questions.map((q, qIdx) => {
+            const isUnanswered = unansweredIndexes.has(qIdx); // ✅ ตรวจว่าข้อนี้ error ไหม
 
-              {q.hint && (
-                <div className="mt-2 text-xs sm:text-sm text-blue-200/70">
-                  Hint: {q.hint}
-                </div>
-              )}
-
-              <textarea
-                value={answers[qIdx] ?? ""}
-                onChange={(e) => {
-                  const next = [...answers];
-                  next[qIdx] = e.target.value;
-                  setAnswers(next);
+            return (
+              <section
+                key={q.id}
+                // ✅ ผูก ref สำหรับ scroll
+                ref={(el) => {
+                  questionRefs.current[qIdx] = el;
                 }}
-                placeholder={isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."}
-                disabled={isLockedForInput}
-                className={`mt-3 w-full rounded-xl border px-4 py-3 text-sm sm:text-base leading-relaxed outline-none resize-y min-h-[140px]
-                  ${
+                className={`rounded-2xl border backdrop-blur-xl p-5 shadow-xl transition-colors ${
+                  isUnanswered
+                    ? "border-red-400/60 bg-red-500/10" // ✅ highlight สีแดงถ้ายังไม่ตอบ
+                    : "border-blue-300/15 bg-white/5"
+                }`}
+                style={{ opacity: isLockedForInput ? 0.88 : 1 }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-extrabold text-blue-50 text-base sm:text-lg">
+                    {titleForQuestion(q.q, qIdx + 1)}
+                  </div>
+                  {/* ✅ แสดง badge เตือนถ้าข้อนี้ยังไม่ตอบ */}
+                  {isUnanswered && (
+                    <span className="shrink-0 text-xs font-bold text-red-300 bg-red-500/20 border border-red-400/40 px-2 py-1 rounded-full">
+                      ยังไม่ตอบ
+                    </span>
+                  )}
+                </div>
+
+                {q.hint && (
+                  <div className="mt-2 text-xs sm:text-sm text-blue-200/70">
+                    Hint: {q.hint}
+                  </div>
+                )}
+
+                {/* ✅ เพิ่ม: hint ว่าถ้าไม่รู้ให้พิมพ์ "ไม่รู้" */}
+                {isUnanswered && (
+                  <div className="mt-2 text-xs text-red-300/80">
+                    💡 หากตอบไม่ได้ให้พิมพ์ว่า &quot;ไม่รู้&quot; ในช่องคำตอบ
+                  </div>
+                )}
+
+                <textarea
+                  value={answers[qIdx] ?? ""}
+                  onChange={(e) => {
+                    const next = [...answers];
+                    next[qIdx] = e.target.value;
+                    setAnswers(next);
+
+                    // ✅ เมื่อพิมพ์แล้ว ให้ลบออกจาก error set
+                    if (e.target.value.trim() !== "") {
+                      setUnansweredIndexes((prev) => {
+                        const next = new Set(prev);
+                        next.delete(qIdx);
+                        return next;
+                      });
+                    }
+                  }}
+                  placeholder={
                     isLockedForInput
-                      ? "bg-black/20 border-blue-300/10 text-blue-100/70"
-                      : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
-                  }`}
-              />
-            </section>
-          ))}
+                      ? "แบบฟอร์มถูกล็อก"
+                      : isUnanswered
+                      ? 'พิมพ์คำตอบที่นี่... (หรือพิมพ์ "ไม่รู้" หากตอบไม่ได้)'
+                      : "พิมพ์คำตอบที่นี่..."
+                  }
+                  disabled={isLockedForInput}
+                  className={`mt-3 w-full rounded-xl border px-4 py-3 text-sm sm:text-base leading-relaxed outline-none resize-y min-h-[140px] transition-colors
+                    ${
+                      isLockedForInput
+                        ? "bg-black/20 border-blue-300/10 text-blue-100/70"
+                        : isUnanswered
+                        ? "bg-red-900/20 border-red-400/50 text-blue-50 focus:ring-2 focus:ring-red-500" // ✅ border แดงถ้ายังไม่ตอบ
+                        : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
+                    }`}
+                />
+              </section>
+            );
+          })}
         </div>
 
         {submitOk && (
