@@ -78,18 +78,23 @@ export default function FormClient() {
   const searchParams = useSearchParams();
   const courseParam = searchParams.get("course");
 
-  const courseConfig = useMemo(() => getCourseConfig(courseParam), [courseParam]);
+  const courseConfig = useMemo(
+    () => getCourseConfig(courseParam),
+    [courseParam],
+  );
   const course = courseConfig.slug;
   const questions = courseConfig.questions;
   const maxTotal = courseConfig.maxTotal;
   const formTitle = courseConfig.title;
 
   const [answers, setAnswers] = useState<string[]>(() =>
-    Array(questions.length).fill("")
+    Array(questions.length).fill(""),
   );
 
   // ✅ เพิ่ม: track ว่าข้อไหน error (ยังไม่ได้ตอบ)
-  const [unansweredIndexes, setUnansweredIndexes] = useState<Set<number>>(new Set());
+  const [unansweredIndexes, setUnansweredIndexes] = useState<Set<number>>(
+    new Set(),
+  );
 
   const [loading, setLoading] = useState(false);
   const [submitOk, setSubmitOk] = useState<SubmitOk | undefined>(undefined);
@@ -134,7 +139,8 @@ export default function FormClient() {
   useEffect(() => {
     return () => {
       if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
-      if (warningHideTimerRef.current) window.clearTimeout(warningHideTimerRef.current);
+      if (warningHideTimerRef.current)
+        window.clearTimeout(warningHideTimerRef.current);
     };
   }, []);
 
@@ -165,10 +171,13 @@ export default function FormClient() {
   }, [userInteracted]);
 
   async function loadState() {
-    const res = await fetch(`/api/exam/state?course=${encodeURIComponent(course)}`, {
-      cache: "no-store",
-      credentials: "include",
-    });
+    const res = await fetch(
+      `/api/exam/state?course=${encodeURIComponent(course)}`,
+      {
+        cache: "no-store",
+        credentials: "include",
+      },
+    );
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
@@ -232,7 +241,11 @@ export default function FormClient() {
     if (inLastTenSeconds) {
       setShowTimerAlert(true);
 
-      if (userInteracted && audioRef.current && !tenSecondAlarmPlayedRef.current) {
+      if (
+        userInteracted &&
+        audioRef.current &&
+        !tenSecondAlarmPlayedRef.current
+      ) {
         tenSecondAlarmPlayedRef.current = true;
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
@@ -287,7 +300,7 @@ export default function FormClient() {
         showToast(
           "error",
           `กรุณาตอบให้ครบทุกข้อ (ยังขาดอีก ${emptyIndexes.length} ข้อ) หากตอบไม่ได้ให้พิมพ์ "ไม่รู้"`,
-          5000
+          5000,
         );
         return; // ❌ หยุด ไม่ส่ง
       }
@@ -408,7 +421,11 @@ export default function FormClient() {
         await warningVideoRef.current.play();
       } catch (e) {
         console.log("video play failed:", e);
-        showToast("error", "เบราว์เซอร์บล็อกเสียงวิดีโอ ลองกดปุ่มอีกครั้ง", 3500);
+        showToast(
+          "error",
+          "เบราว์เซอร์บล็อกเสียงวิดีโอ ลองกดปุ่มอีกครั้ง",
+          3500,
+        );
       }
     }
 
@@ -424,31 +441,52 @@ export default function FormClient() {
     toast?.type === "success"
       ? "bg-emerald-500/15 border-emerald-300/25 text-emerald-100"
       : toast?.type === "error"
-      ? "bg-red-500/15 border-red-300/25 text-red-100"
-      : "bg-blue-500/15 border-blue-300/25 text-blue-100";
+        ? "bg-red-500/15 border-red-300/25 text-red-100"
+        : "bg-blue-500/15 border-blue-300/25 text-blue-100";
 
   const submitLabel = loading
     ? "กำลังส่ง..."
     : locked || submitOk
-    ? "ส่งแล้ว ✅"
-    : "ส่งคำตอบ";
+      ? "ส่งแล้ว ✅"
+      : "ส่งคำตอบ";
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-24">
       <style jsx global>{`
         @keyframes casper-appear-fade {
-          0% { transform: translateX(120%) translateY(0) scale(0.8); opacity: 0; }
-          15% { transform: translateX(0) translateY(-20px) scale(1); opacity: 1; }
-          80% { transform: translateX(0) translateY(-40px) scale(1); opacity: 1; }
-          100% { transform: translateX(-150%) translateY(-60px) scale(0.7); opacity: 0; }
+          0% {
+            transform: translateX(120%) translateY(0) scale(0.8);
+            opacity: 0;
+          }
+          15% {
+            transform: translateX(0) translateY(-20px) scale(1);
+            opacity: 1;
+          }
+          80% {
+            transform: translateX(0) translateY(-40px) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(-150%) translateY(-60px) scale(0.7);
+            opacity: 0;
+          }
         }
-        .animate-casper { animation: casper-appear-fade 8s ease-in-out forwards; }
+        .animate-casper {
+          animation: casper-appear-fade 8s ease-in-out forwards;
+        }
 
         @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
         }
-        .animate-bounce { animation: bounce 0.9s ease-in-out infinite; }
+        .animate-bounce {
+          animation: bounce 0.9s ease-in-out infinite;
+        }
       `}</style>
 
       <div className="absolute inset-0 bg-black/25" />
@@ -552,8 +590,12 @@ export default function FormClient() {
               <span
                 className="px-3 py-1 rounded-full text-xs font-extrabold border"
                 style={{
-                  background: locked ? "rgba(34,197,94,0.16)" : "rgba(255,255,255,0.08)",
-                  borderColor: locked ? "rgba(34,197,94,0.35)" : "rgba(255,255,255,0.14)",
+                  background: locked
+                    ? "rgba(34,197,94,0.16)"
+                    : "rgba(255,255,255,0.08)",
+                  borderColor: locked
+                    ? "rgba(34,197,94,0.35)"
+                    : "rgba(255,255,255,0.14)",
                 }}
               >
                 {locked ? "✅ ส่งแล้ว" : "📝 ยังไม่ส่ง"}
@@ -630,11 +672,7 @@ export default function FormClient() {
                     }
                   }}
                   placeholder={
-                    isLockedForInput
-                      ? "แบบฟอร์มถูกล็อก"
-                      : isUnanswered
-                      ? 'พิมพ์คำตอบที่นี่... (หรือพิมพ์ "ไม่รู้" หากตอบไม่ได้)'
-                      : "พิมพ์คำตอบที่นี่..."
+                    isLockedForInput ? "แบบฟอร์มถูกล็อก" : "พิมพ์คำตอบที่นี่..."
                   }
                   disabled={isLockedForInput}
                   className={`mt-3 w-full rounded-xl border px-4 py-3 text-sm sm:text-base leading-relaxed outline-none resize-y min-h-[140px] transition-colors
@@ -642,8 +680,8 @@ export default function FormClient() {
                       isLockedForInput
                         ? "bg-black/20 border-blue-300/10 text-blue-100/70"
                         : isUnanswered
-                        ? "bg-red-900/20 border-red-400/50 text-blue-50 focus:ring-2 focus:ring-red-500" // ✅ border แดงถ้ายังไม่ตอบ
-                        : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
+                          ? "bg-red-900/20 border-red-400/50 text-blue-50 focus:ring-2 focus:ring-red-500" // ✅ border แดงถ้ายังไม่ตอบ
+                          : "bg-black/30 border-blue-300/15 text-blue-50 focus:ring-2 focus:ring-blue-500"
                     }`}
                 />
               </section>
@@ -653,8 +691,12 @@ export default function FormClient() {
 
         {submitOk && (
           <section className="mt-10 rounded-2xl border border-emerald-300/20 bg-emerald-500/10 backdrop-blur-xl p-6 shadow-2xl text-center">
-            <h2 className="text-2xl font-bold text-emerald-300 mb-2">ส่งคำตอบเรียบร้อยแล้ว!</h2>
-            <div className="text-sm text-emerald-100/80">Response ID: {submitOk.id}</div>
+            <h2 className="text-2xl font-bold text-emerald-300 mb-2">
+              ส่งคำตอบเรียบร้อยแล้ว!
+            </h2>
+            <div className="text-sm text-emerald-100/80">
+              Response ID: {submitOk.id}
+            </div>
           </section>
         )}
       </main>
@@ -667,17 +709,19 @@ export default function FormClient() {
               background: isExpired
                 ? "rgba(239,68,68,0.22)"
                 : secondsLeft <= 300
-                ? "rgba(245,158,11,0.22)"
-                : "rgba(59,130,246,0.22)",
+                  ? "rgba(245,158,11,0.22)"
+                  : "rgba(59,130,246,0.22)",
               borderColor: isExpired
                 ? "rgba(239,68,68,0.5)"
                 : secondsLeft <= 300
-                ? "rgba(245,158,11,0.5)"
-                : "rgba(59,130,246,0.5)",
+                  ? "rgba(245,158,11,0.5)"
+                  : "rgba(59,130,246,0.5)",
             }}
           >
             ⏳ {timerLabel}
-            {isExpired && <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>}
+            {isExpired && (
+              <span className="ml-2 text-red-300 text-xs">(หมดเวลา)</span>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
