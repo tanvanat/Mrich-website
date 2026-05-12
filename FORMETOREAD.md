@@ -27,4 +27,6 @@ https://myaccount.google.com/apppasswords?pli=1&rapt=AEjHL4ND7pJhcFMYTZ6hvicKXiz
 -ไม่สามารถcopy pasteคำตอบมาลงได้
 
 เเก้ไขเวลาทำข้อสอบ:
-src/app/api/exam/state/route.ts
+src/app/api/exam/state/route.ts (เป็นหลัก)
+src/app/admin/exam-states/route.ts
+src/app/api/exam/submit/route.ts

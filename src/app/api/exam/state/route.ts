@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getNickFromCookie, getOrCreateUserByNick, isNickAdmin } from "@/lib/auth";
 
-const EXAM_MINUTES = 35;
+const EXAM_MINUTES = 40;
 
 function getFormIdFromCourse(course?: string | null) {
   if (course === "proactive") return "mrich-assessment-course2-v1";

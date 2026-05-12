@@ -16,7 +16,7 @@ import {
 import { getNickFromCookie, getOrCreateUserByNick } from "@/lib/auth";
 import crypto from "crypto";
 
-const EXAM_MINUTES = 30;
+const EXAM_MINUTES = 40;
 
 function getRoleFromEnv(nick: string): "ADMIN" | "LEADER" | "LEARNER" {
   const normalize = (s: string) =>
