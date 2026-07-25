@@ -14,6 +14,11 @@ const COURSE_CONFIG = [
     formId: "mrich-course2",
     label: "Course 2",
   },
+  {
+    slug: "habit_one_two",
+    formId: "mrich-course3",
+    label: "Course 3",
+  },
 ];
 
 export type CourseScore = {
