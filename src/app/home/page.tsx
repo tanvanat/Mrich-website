@@ -498,17 +498,17 @@ export default function HomePage() {
                   </div>
 
                   {!unlocked && (
-                    <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center">
-                      <div className="text-center px-6">
-                        <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/10 border border-blue-200/20 flex items-center justify-center">
-                          <Lock className="h-5 w-5 text-blue-100" />
-                        </div>
-                        <div className="text-sm font-semibold text-white">
-                          Locked for your role
-                        </div>
+                  <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center">
+                    <div className="text-center px-6">
+                      <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/10 border border-blue-200/20 flex items-center justify-center">
+                        <Lock className="h-5 w-5 text-blue-100" />
+                      </div>
+                      <div className="text-sm font-semibold text-white">
+                        Locked for your role
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
                 </div>
               );
             })}
