@@ -248,7 +248,7 @@ export default function HomePage() {
       {
         id: 3,
         title: "Course 3",
-        subtitle: "Proactive (ต่อเนื่อง)",
+        subtitle: "Proactive + Habit 2",
         accent: "from-indigo-500/25 to-purple-500/10",
         access: "BOTH",
         slug: "proactive3",

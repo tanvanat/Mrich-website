@@ -75,7 +75,7 @@ function getCourseConfig(course: string | null) {
     return {
       slug: "proactive3" as CourseSlug,
       // ⚠️ placeholder title — adjust to your real course 3 name
-      title: "ข้อสอบคนลีด Proactive (คอร์ส 3)",
+      title: "ข้อสอบ Habit 1+2",
       questions: course3Questions as AnyQuestion[],
       maxTotal: course3MaxTotal,
     };
