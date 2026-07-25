@@ -39,7 +39,6 @@ export async function GET() {
 
   const user = await getOrCreateUserByNick(nick);
 
-  // ดึง response ล่าสุดของแต่ละ course แยกกัน
   const scores: CourseScore[] = await Promise.all(
     COURSE_CONFIG.map(async ({ slug, formId, label }) => {
       const response = await prisma.response.findFirst({
@@ -50,10 +49,16 @@ export async function GET() {
           maxScore: true,
           percent: true,
           updatedAt: true,
+          answersJson: true, // ✅ เพิ่มบรรทัดนี้ — ต้องดึงมาเพื่อเช็คว่า admin ให้คะแนนหรือยัง
         },
       });
 
-      if (!response || response.totalScore === 0) {
+      // ✅ เปลี่ยนเงื่อนไข: เช็คจาก answersJson.scores (ที่ admin เป็นคนบันทึก)
+      // แทนการเช็คจาก totalScore === 0 (ซึ่งเป็นคะแนน auto-score ตอน submit)
+      const adminScores = (response?.answersJson as any)?.scores;
+      const isGradedByAdmin = Array.isArray(adminScores) && adminScores.length > 0;
+
+      if (!response || !isGradedByAdmin) {
         return { slug, label, formId, hasScore: false };
       }
 
@@ -62,11 +67,13 @@ export async function GET() {
         label,
         formId,
         hasScore: true,
-        totalScore: response.totalScore,
-        maxScore: response.maxScore,
+        totalScore: response.totalScore ?? undefined,
+        maxScore: response.maxScore ?? undefined,
         percent:
           response.percent ??
-          Math.round((response.totalScore / response.maxScore) * 100),
+          (response.totalScore != null && response.maxScore
+            ? Math.round((response.totalScore / response.maxScore) * 100)
+            : undefined),
         updatedAt: response.updatedAt.toISOString(),
       };
     })
