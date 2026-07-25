@@ -13,6 +13,12 @@ import {
   scoreAnswer as scoreAnswerCourse2,
   levelFromPercent as levelFromPercentCourse2,
 } from "@/lib/questions-course2";
+import {
+  questions as course3Questions,
+  maxTotal as course3MaxTotal,
+  scoreAnswer as scoreAnswerCourse3,
+  levelFromPercent as levelFromPercentCourse3,
+} from "@/lib/questions-course3";
 import { getNickFromCookie, getOrCreateUserByNick } from "@/lib/auth";
 import crypto from "crypto";
 
@@ -35,16 +41,28 @@ function getCourseConfig(course?: string | null) {
   if (course === "proactive") {
     return {
       course: "proactive",
-      formId: "mrich-assessment-course2-v1",
+      formId: "mrich-course2",
       questions: course2Questions,
       maxTotal: course2MaxTotal,
       scoreAnswer: scoreAnswerCourse2,
       levelFromPercent: levelFromPercentCourse2,
     };
   }
+  // ⚠️ TODO: confirm "proactive3" matches the COURSE value used in
+  // AdminExamCourse3Client.tsx and wherever the exam is started for course 3.
+  if (course === "proactive3") {
+    return {
+      course: "proactive3",
+      formId: "mrich-course3",
+      questions: course3Questions,
+      maxTotal: course3MaxTotal,
+      scoreAnswer: scoreAnswerCourse3,
+      levelFromPercent: levelFromPercentCourse3,
+    };
+  }
   return {
     course: "mindset-principles",
-    formId: "mrich-assessment-course1-v1",
+    formId: "mrich-course1",
     questions: course1Questions,
     maxTotal: course1MaxTotal,
     scoreAnswer: scoreAnswerCourse1,

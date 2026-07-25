@@ -1,4 +1,4 @@
-export const FORM_ID = "mrich-amway-h7-v1-course1";
+export const FORM_ID = "mrich-course1";
 
 export type Question = {
   id: string;

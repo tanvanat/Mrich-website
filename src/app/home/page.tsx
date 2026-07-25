@@ -1,4 +1,3 @@
-// src/app/home/HomeClient.tsx
 "use client";
 
 import Link from "next/link";
@@ -48,9 +47,12 @@ type CourseItem = {
   description: string;
 };
 
+// ⚠️ Synced to the formIds corrected in the submit route:
+// mrich-course1 / mrich-course2 / mrich-course3
 const COURSE_FORM_MAP: Record<string, string> = {
-  "mindset-principles": "mrich-assessment-course1-v1",
-  proactive: "mrich-assessment-course2-v1",
+  "mindset-principles": "mrich-course1",
+  proactive: "mrich-course2",
+  proactive3: "mrich-course3",
 };
 
 function FlowerBackground() {
@@ -242,6 +244,17 @@ export default function HomePage() {
         access: "LEADER_ONLY",
         slug: "proactive",
         description: "Communication • Win/Win • teamwork",
+      },
+      {
+        id: 3,
+        title: "Course 3",
+        subtitle: "Proactive (ต่อเนื่อง)",
+        accent: "from-indigo-500/25 to-purple-500/10",
+        // ⚠️ Guessed same access level as Course 2 — adjust if course 3
+        // should be open to learners too ("BOTH").
+        access: "LEADER_ONLY",
+        slug: "proactive3",
+        description: "Goal setting • habits • life planning",
       },
     ],
     []

@@ -11,6 +11,10 @@ import {
   questions as course2Questions,
   maxTotal as course2MaxTotal,
 } from "@/lib/questions-course2";
+import {
+  questions as course3Questions,
+  maxTotal as course3MaxTotal,
+} from "@/lib/questions-course3";
 
 type ExamStateResp = {
   role: "ADMIN" | "LEARNER" | "LEADER";
@@ -26,7 +30,9 @@ type SubmitOk = { id: string };
 type ToastType = "info" | "success" | "error";
 type ToastState = { type: ToastType; message: string } | null;
 
-type CourseSlug = "mindset-principles" | "proactive";
+// ⚠️ "proactive3" is the slug used for course 3 — must match the `course`
+// value AdminExamCourse3Client / the submit route expect.
+type CourseSlug = "mindset-principles" | "proactive" | "proactive3";
 
 type AnyQuestion = {
   id: string;
@@ -62,6 +68,16 @@ function getCourseConfig(course: string | null) {
       title: "ข้อสอบคนลีด Proactive",
       questions: course2Questions as AnyQuestion[],
       maxTotal: course2MaxTotal,
+    };
+  }
+
+  if (normalized === "proactive3") {
+    return {
+      slug: "proactive3" as CourseSlug,
+      // ⚠️ placeholder title — adjust to your real course 3 name
+      title: "ข้อสอบคนลีด Proactive (คอร์ส 3)",
+      questions: course3Questions as AnyQuestion[],
+      maxTotal: course3MaxTotal,
     };
   }
 
@@ -450,6 +466,13 @@ export default function FormClient() {
       ? "ส่งแล้ว ✅"
       : "ส่งคำตอบ";
 
+  const courseBadgeLabel =
+    course === "proactive"
+      ? "COURSE 2"
+      : course === "proactive3"
+        ? "COURSE 3"
+        : "COURSE 1";
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-blue-100 pb-24">
       <style jsx global>{`
@@ -564,7 +587,7 @@ export default function FormClient() {
                 {state?.role ? `ROLE: ${state.role}` : "กำลังโหลด..."}
               </span>
               <span className="px-3 py-1 rounded-full border border-cyan-300/20 bg-cyan-400/10 text-cyan-100 text-xs font-bold">
-                {course === "proactive" ? "COURSE 2" : "COURSE 1"}
+                {courseBadgeLabel}
               </span>
             </div>
           </div>

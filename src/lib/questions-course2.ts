@@ -1,4 +1,5 @@
-export const FORM_ID = "mrich-amway-proactive-v1";
+//ข้อสอบproactiveอย่างเดียวสำหรับ leaderเท่านั้น
+export const FORM_ID = "mrich-course2";
 
 export type Question = {
   id: string;
