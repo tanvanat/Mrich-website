@@ -1,4 +1,4 @@
-//จัดการ “สถานะข้อสอบ” ของแต่ละคน เช่น เริ่มสอบแล้วไหม หมดเวลายัง ล็อกหรือยัง
+//จัดการ "สถานะข้อสอบ" ของแต่ละคน เช่น เริ่มสอบแล้วไหม หมดเวลายัง ล็อกหรือยัง
 // src/app/api/exam/state/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -6,10 +6,20 @@ import { getNickFromCookie, getOrCreateUserByNick, isNickAdmin } from "@/lib/aut
 
 const EXAM_MINUTES = 40;
 
+// ⚠️ Synced to the formIds corrected in /api/exam/submit/route.ts
 function getFormIdFromCourse(course?: string | null) {
-  if (course === "proactive") return "mrich-assessment-course2-v1";
-  return "mrich-assessment-course1-v1";
+  if (course === "proactive") return "mrich-course2";
+  if (course === "proactive3") return "mrich-course3";
+  return "mrich-course1";
 }
+
+// ⚠️ TODO: this route currently has NO per-course, per-role access control.
+// It only distinguishes ADMIN vs USER (not LEADER vs LEARNER), so any
+// authenticated non-admin user can hit ?course=proactive3 directly and get
+// exam state, even if the /home UI hides the button for learners. If
+// course 3 (or 2) should be restricted to leaders only, that check needs
+// to be added here — e.g. reject with 403 if the nick isn't a leader and
+// the course requires LEADER_ONLY access.
 
 export async function GET(req: NextRequest) {
   const nick = await getNickFromCookie();

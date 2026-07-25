@@ -250,9 +250,7 @@ export default function HomePage() {
         title: "Course 3",
         subtitle: "Proactive (ต่อเนื่อง)",
         accent: "from-indigo-500/25 to-purple-500/10",
-        // ⚠️ Guessed same access level as Course 2 — adjust if course 3
-        // should be open to learners too ("BOTH").
-        access: "LEADER_ONLY",
+        access: "BOTH",
         slug: "proactive3",
         description: "Goal setting • habits • life planning",
       },
