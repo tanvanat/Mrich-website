@@ -52,7 +52,7 @@ type CourseItem = {
 const COURSE_FORM_MAP: Record<string, string> = {
   "mindset-principles": "mrich-course1",
   proactive: "mrich-course2",
-  proactive3: "mrich-course3",
+  habit_one_two: "mrich-course3",
 };
 
 function FlowerBackground() {
@@ -251,7 +251,7 @@ export default function HomePage() {
         subtitle: "Proactive + Habit 2",
         accent: "from-indigo-500/25 to-purple-500/10",
         access: "BOTH",
-        slug: "proactive3",
+        slug: "habit_one_two",
         description: "Goal setting • habits • life planning",
       },
     ],
@@ -498,17 +498,17 @@ export default function HomePage() {
                   </div>
 
                   {!unlocked && (
-                  <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center">
-                    <div className="text-center px-6">
-                      <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/10 border border-blue-200/20 flex items-center justify-center">
-                        <Lock className="h-5 w-5 text-blue-100" />
-                      </div>
-                      <div className="text-sm font-semibold text-white">
-                        Locked for your role
-                      </div>
+                <div className="absolute inset-0 bg-black/35 backdrop-blur-[2px] flex items-center justify-center">
+                  <div className="text-center px-6">
+                    <div className="mx-auto mb-3 h-12 w-12 rounded-2xl bg-white/10 border border-blue-200/20 flex items-center justify-center">
+                      <Lock className="h-5 w-5 text-blue-100" />
+                    </div>
+                    <div className="text-sm font-semibold text-white">
+                      Locked for your role
                     </div>
                   </div>
-                )}
+                </div>
+              )}
                 </div>
               );
             })}

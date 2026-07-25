@@ -30,9 +30,9 @@ type SubmitOk = { id: string };
 type ToastType = "info" | "success" | "error";
 type ToastState = { type: ToastType; message: string } | null;
 
-// ⚠️ "proactive3" is the slug used for course 3 — must match the `course`
+// ⚠️ "habit_one_two" is the slug used for course 3 — must match the `course`
 // value AdminExamCourse3Client / the submit route expect.
-type CourseSlug = "mindset-principles" | "proactive" | "proactive3";
+type CourseSlug = "mindset-principles" | "proactive" | "habit_one_two";
 
 type AnyQuestion = {
   id: string;
@@ -71,9 +71,9 @@ function getCourseConfig(course: string | null) {
     };
   }
 
-  if (normalized === "proactive3") {
+  if (normalized === "habit_one_two") {
     return {
-      slug: "proactive3" as CourseSlug,
+      slug: "habit_one_two" as CourseSlug,
       // ⚠️ placeholder title — adjust to your real course 3 name
       title: "ข้อสอบ Habit 1+2",
       questions: course3Questions as AnyQuestion[],
@@ -469,7 +469,7 @@ export default function FormClient() {
   const courseBadgeLabel =
     course === "proactive"
       ? "COURSE 2"
-      : course === "proactive3"
+      : course === "habit_one_two"
         ? "COURSE 3"
         : "COURSE 1";
 

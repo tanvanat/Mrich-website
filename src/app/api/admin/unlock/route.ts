@@ -8,8 +8,8 @@ import {
 } from "@/lib/auth";
 
 const COURSE_FORM_MAP: Record<string, string> = {
-  "mindset-principles": "mrich-assessment-course1-v1",
-  proactive: "mrich-assessment-course2-v1",
+  "mindset-principles": "mrich-course1",
+  proactive: "mrich-course2",
   default: "mrich-assessment-v1",
 };
 

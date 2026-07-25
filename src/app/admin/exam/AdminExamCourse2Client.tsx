@@ -44,7 +44,7 @@ type MeResp =
   | { authed: false };
 
 const COURSE = "proactive";
-const FORM_ID = "mrich-assessment-course2-v1";
+const FORM_ID = "mrich-course2";
 
 const MAX_SCORES = [4, 6, 4, 4, 4, 4, 4, 4, 6, 4, 4, 4, 6, 4, 4, 4, 4, 4, 6, 6, 6, 4] as const;
 const TOTAL_MAX = MAX_SCORES.reduce((sum, v) => sum + v, 0);

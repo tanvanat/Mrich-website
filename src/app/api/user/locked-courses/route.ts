@@ -9,9 +9,9 @@ import { prisma } from "@/lib/prisma";
 import { getNickFromCookie, getOrCreateUserByNick } from "@/lib/auth";
 
 const FORM_COURSE_MAP: Record<string, string> = {
-  "mrich-assessment-course1-v1": "mindset-principles",
-  "mrich-assessment-course2-v1": "proactive",
-  "mrich-assessment-v1":         "mindset-principles",
+  "mrich-course1": "mindset-principles",
+  "mrich-course2": "proactive",
+  "mrich-course3": "habit_one_two",
 };
 
 export async function GET() {

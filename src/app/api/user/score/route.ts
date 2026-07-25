@@ -6,12 +6,12 @@ import { getNickFromCookie, getOrCreateUserByNick } from "@/lib/auth";
 const COURSE_CONFIG = [
   {
     slug: "mindset-principles",
-    formId: "mrich-assessment-course1-v1",
+    formId: "mrich-course1",
     label: "Course 1",
   },
   {
     slug: "proactive",
-    formId: "mrich-assessment-course2-v1",
+    formId: "mrich-course2",
     label: "Course 2",
   },
 ];

@@ -48,11 +48,11 @@ function getCourseConfig(course?: string | null) {
       levelFromPercent: levelFromPercentCourse2,
     };
   }
-  // ⚠️ TODO: confirm "proactive3" matches the COURSE value used in
+  // ⚠️ TODO: confirm "habit_one_two" matches the COURSE value used in
   // AdminExamCourse3Client.tsx and wherever the exam is started for course 3.
-  if (course === "proactive3") {
+  if (course === "habit_one_two") {
     return {
-      course: "proactive3",
+      course: "habit_one_two",
       formId: "mrich-course3",
       questions: course3Questions,
       maxTotal: course3MaxTotal,

@@ -52,7 +52,7 @@ type MeResp =
   | { authed: false };
 
 const COURSE = "mindset-principles";
-const FORM_ID = "mrich-assessment-course1-v1";
+const FORM_ID = "mrich-course1";
 
 const MAX_SCORES = [
   2, 9, 9, 2, 2, 2, 4, 4, 4, 2, 2, 2, 6, 2, 4, 5, 2, 2, 9, 2, 4, 3, 2, 2, 2,

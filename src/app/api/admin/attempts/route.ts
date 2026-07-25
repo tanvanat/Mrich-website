@@ -7,16 +7,16 @@ export const runtime = "nodejs";
 
 // ✅ formId ใหม่ทั้งสอง course
 const FORM_IDS = [
-  "mrich-assessment-course1-v1",
-  "mrich-assessment-course2-v1",
-  "mrich-assessment-v1", // backward compat ของเก่า
+  "mrich-course1",
+  "mrich-course2",
+  "mrich-course3",
 ];
 
 // formId → course name (ตรงกับที่ UI ใช้ใน detectCourse / stateKey)
 const FORM_TO_COURSE: Record<string, string> = {
-  "mrich-assessment-course1-v1": "mindset-principles",
-  "mrich-assessment-course2-v1": "proactive",
-  "mrich-assessment-v1":         "mindset-principles", // legacy fallback
+  "mrich-course1": "mindset-principles",
+  "mrich-course2": "proactive",
+  "mrich-course3": "habit_one_two",
 };
 
 function normalizeNick(v: string) {

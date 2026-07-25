@@ -14,7 +14,7 @@ const EXAM_MINUTES = 40;
 // one /api/exam/state actually reads — so resets silently did nothing.
 function getFormIdFromCourse(course?: string | null) {
   if (course === "proactive") return "mrich-course2";
-  if (course === "proactive3") return "mrich-course3";
+  if (course === "habit_one_two") return "mrich-course3";
   return "mrich-course1";
 }
 

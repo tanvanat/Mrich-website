@@ -44,7 +44,7 @@ type MeResp =
   | { authed: false };
 
 // ⚠️ TODO: confirm these match your actual course 3 identifiers
-const COURSE = "proactive3";
+const COURSE = "habit_one_two";
 const FORM_ID = "mrich-assessment-course3-v1";
 
 function fmt(dt: any) {
