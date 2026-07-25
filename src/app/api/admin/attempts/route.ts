@@ -5,11 +5,14 @@ import { getNickFromCookie, isNickAdmin } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-// ✅ formId ใหม่ทั้งสอง course
+// ✅ รวมทั้ง formId เก่า (ก่อน refactor) และใหม่ ป้องกันข้อมูลเก่าตกหล่น
 const FORM_IDS = [
   "mrich-course1",
   "mrich-course2",
   "mrich-course3",
+  "mrich-assessment-course1-v1",
+  "mrich-assessment-course2-v1",
+  "mrich-assessment-v1",
 ];
 
 // formId → course name (ตรงกับที่ UI ใช้ใน detectCourse / stateKey)
@@ -17,6 +20,9 @@ const FORM_TO_COURSE: Record<string, string> = {
   "mrich-course1": "mindset-principles",
   "mrich-course2": "proactive",
   "mrich-course3": "habit_one_two",
+  "mrich-assessment-course1-v1": "mindset-principles",
+  "mrich-assessment-course2-v1": "proactive",
+  "mrich-assessment-v1": "mindset-principles",
 };
 
 function normalizeNick(v: string) {

@@ -45,7 +45,7 @@ type MeResp =
 
 // ⚠️ TODO: confirm these match your actual course 3 identifiers
 const COURSE = "habit_one_two";
-const FORM_ID = "mrich-assessment-course3-v1";
+const FORM_ID = "mrich-course3";
 
 function fmt(dt: any) {
   if (!dt) return "—";

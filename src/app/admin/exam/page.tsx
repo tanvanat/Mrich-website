@@ -2,6 +2,7 @@
 import Link from "next/link";
 import AdminExamClient from "./AdminExamClient";
 import AdminExamCourse2Client from "./AdminExamCourse2Client";
+import AdminExamCourse3Client from "./AdminExamCourse3Client"; // ✅ เพิ่ม import
 
 type PageProps = {
   searchParams?: Promise<{
@@ -14,6 +15,7 @@ export default async function Page({ searchParams }: PageProps) {
   const course = params?.course ?? "mindset-principles";
 
   const isCourse2 = course === "proactive";
+  const isCourse3 = course === "habit_one_two"; // ✅ เพิ่ม
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
@@ -22,7 +24,7 @@ export default async function Page({ searchParams }: PageProps) {
           <Link
             href="/admin/exam"
             className={`rounded-full px-4 py-2 text-sm font-bold border transition ${
-              !isCourse2
+              !isCourse2 && !isCourse3
                 ? "bg-blue-600 text-white border-blue-500"
                 : "bg-white/5 text-blue-100 border-blue-300/20 hover:bg-white/10"
             }`}
@@ -40,10 +42,28 @@ export default async function Page({ searchParams }: PageProps) {
           >
             Course 2
           </Link>
+
+          {/* ✅ เพิ่ม tab Course 3 */}
+          <Link
+            href="/admin/exam?course=habit_one_two"
+            className={`rounded-full px-4 py-2 text-sm font-bold border transition ${
+              isCourse3
+                ? "bg-blue-600 text-white border-blue-500"
+                : "bg-white/5 text-blue-100 border-blue-300/20 hover:bg-white/10"
+            }`}
+          >
+            Course 3
+          </Link>
         </div>
       </div>
 
-      {isCourse2 ? <AdminExamCourse2Client /> : <AdminExamClient />}
+      {isCourse2 ? (
+        <AdminExamCourse2Client />
+      ) : isCourse3 ? (
+        <AdminExamCourse3Client /> // ✅ เพิ่ม branch นี้
+      ) : (
+        <AdminExamClient />
+      )}
     </div>
   );
 }
