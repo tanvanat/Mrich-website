@@ -29,20 +29,17 @@ export async function getOrCreateUserByNick(nickRaw: string): Promise<User> {
 
   const email = `${nick}@mrich.local`;
   const wantRole = isNickAdmin(nick) ? "ADMIN" : "USER";
-  const now = new Date();
 
   let user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) {
     user = await prisma.user.create({
-      data: { email, name: nick, role: wantRole, lastSeenAt: now },
+      data: { email, name: nick, role: wantRole },
     });
-  } else {
-    // ✅ อัปเดต lastSeenAt ทุกครั้งที่ user โผล่มา (ใช้เป็นสัญญาณ "online / signed in"
-    // บนหน้า admin overview) — และซิงก์ role ไปในตัวถ้าเปลี่ยนแปลง
+  } else if (user.role !== wantRole) {
     user = await prisma.user.update({
       where: { email },
-      data: { role: wantRole, lastSeenAt: now },
+      data: { role: wantRole },
     });
   }
 

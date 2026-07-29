@@ -1,14 +1,17 @@
 // src/app/api/admin/overview/route.ts
 //
 // GET /api/admin/overview
-// รวมสถานะของ "ทุกคน" ในระบบไว้ในที่เดียว สำหรับหน้า /admin/overview:
-//   - signed in / online ตอนนี้ไหม (จาก User.lastSeenAt)
-//   - กำลังเปิด/ทำ course ไหนอยู่ตอนนี้ (จาก ExamState.startedAt / expiresAt / locked)
-//   - ล็อกอยู่ไหมในแต่ละ course (1 / 2 / 3)
+// รวมสถานะของ "ทุกคน" ที่เคย signed in ไว้ในที่เดียว สำหรับหน้า /admin/overview
+// สถานะของแต่ละคนไล่ตาม funnel นี้ (คำนวณจาก ExamState/Response ที่มีอยู่แล้ว
+// ไม่ต้องเพิ่ม field ใหม่ในฐานข้อมูล):
+//
+//   login            → มีบัญชี (เคย signed in) แต่ยังไม่เริ่มคอร์สไหนเลย
+//   doing course N   → เปิดคอร์ส N ค้างอยู่ (startedAt แล้ว ยังไม่ล็อก ยังไม่หมดเวลา)
+//   locked course N  → ส่งคำตอบคอร์ส N ไปแล้ว 1 ครั้ง (ตามกติกา 1 คน 1 ครั้งต่อคอร์ส)
+//                      → ล็อกอยู่จนกว่า admin จะ unlock
+//   expired course N → เวลาหมดแต่ยังไม่ได้ส่ง (ค้างอยู่ ยังไม่ locked ในฐานข้อมูล)
 //
 // ใช้ auth แบบเดียวกับ endpoint admin อื่น ๆ ในระบบ (cookie mrich_nick + isNickAdmin)
-// ไม่ใช้ next-auth JWT (getToken) เพราะหน้า /admin ทั้งหมดถูกป้องกันด้วย middleware.ts
-// ผ่าน cookie นี้เท่านั้น — ระบบไม่เคยสร้าง next-auth session คู่ขนานให้ user กลุ่มนี้
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getNickFromCookie, isNickAdmin, normalizeNick } from "@/lib/auth";
@@ -16,7 +19,6 @@ import { getNickFromCookie, isNickAdmin, normalizeNick } from "@/lib/auth";
 export const runtime = "nodejs";
 
 const EXAM_MINUTES = 40;
-const ONLINE_WINDOW_MS = 2 * 60 * 1000; // ถือว่า "online ตอนนี้" ถ้า lastSeenAt ไม่เกิน 2 นาทีที่แล้ว
 
 const FORM_IDS = ["mrich-course1", "mrich-course2", "mrich-course3"] as const;
 type FormId = (typeof FORM_IDS)[number];
@@ -69,13 +71,12 @@ export async function GET() {
   const now = Date.now();
 
   const users = await prisma.user.findMany({
-    orderBy: [{ lastSeenAt: "desc" }, { createdAt: "desc" }],
+    orderBy: { createdAt: "desc" },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
-      lastSeenAt: true,
       examStates: {
         where: { formId: { in: FORM_IDS as unknown as string[] } },
         orderBy: { updatedAt: "desc" },
@@ -120,10 +121,15 @@ export async function GET() {
       if (!stateByFormId.has(formId)) stateByFormId.set(formId, s);
     }
 
+    let lastActivityAt: number | null = null;
+
     const courses: CourseCell[] = FORM_IDS.map((formId) => {
       const state = stateByFormId.get(formId) ?? null;
       const courseKey = FORM_TO_COURSE[formId];
       const latest = latestResponseByKey.get(`${u.id}:${formId}`) ?? null;
+
+      if (state?.updatedAt) lastActivityAt = Math.max(lastActivityAt ?? 0, state.updatedAt.getTime());
+      if (latest?.createdAt) lastActivityAt = Math.max(lastActivityAt ?? 0, latest.createdAt.getTime());
 
       return {
         formId,
@@ -144,21 +150,39 @@ export async function GET() {
       };
     });
 
-    const lastSeenAt = u.lastSeenAt ? u.lastSeenAt.toISOString() : null;
-    const online = !!u.lastSeenAt && now - u.lastSeenAt.getTime() <= ONLINE_WINDOW_MS;
-    const doingNow = courses.find((c) => c.status === "in_progress")?.label ?? null;
+    // ── สรุปสถานะล่าสุดของ user ทั้งคน ตาม funnel: doing > locked > expired > login ──
+    const doing = courses.filter((c) => c.status === "in_progress");
+    const locked = courses.filter((c) => c.status === "locked");
+    const expired = courses.filter((c) => c.status === "expired");
+
+    let latestStatus: { stage: "doing" | "locked" | "expired" | "login"; courses: string[] };
+    if (doing.length > 0) {
+      latestStatus = { stage: "doing", courses: doing.map((c) => c.label) };
+    } else if (locked.length > 0) {
+      latestStatus = { stage: "locked", courses: locked.map((c) => c.label) };
+    } else if (expired.length > 0) {
+      latestStatus = { stage: "expired", courses: expired.map((c) => c.label) };
+    } else {
+      latestStatus = { stage: "login", courses: [] };
+    }
 
     return {
       id: u.id,
       nick: normalizeNick(u.name ?? u.email ?? ""),
       displayName: u.name ?? u.email ?? "—",
       role: u.role,
-      lastSeenAt,
-      online,
-      doingNow, // course ที่กำลังเปิดทำอยู่ตอนนี้ (ถ้ามี), null ถ้าไม่มี
+      latestStatus,
+      lastActivityAt: lastActivityAt ? new Date(lastActivityAt).toISOString() : null,
       courses,
     };
   });
 
-  return NextResponse.json({ items, onlineWindowMs: ONLINE_WINDOW_MS });
+  // คนที่มีกิจกรรมล่าสุดขึ้นก่อน คนที่ยังไม่เริ่มอะไรเลยไปท้ายสุด
+  items.sort((a, b) => {
+    const at = a.lastActivityAt ? new Date(a.lastActivityAt).getTime() : -1;
+    const bt = b.lastActivityAt ? new Date(b.lastActivityAt).getTime() : -1;
+    return bt - at;
+  });
+
+  return NextResponse.json({ items });
 }

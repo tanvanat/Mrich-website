@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type UserRole = "USER" | "ADMIN";
 type CourseStatus = "locked" | "in_progress" | "expired" | "not_started";
+type FunnelStage = "doing" | "locked" | "expired" | "login";
 
 type CourseCell = {
   formId: string;
@@ -23,13 +24,12 @@ type OverviewRow = {
   nick: string;
   displayName: string;
   role: UserRole;
-  lastSeenAt: string | null;
-  online: boolean;
-  doingNow: string | null;
+  latestStatus: { stage: FunnelStage; courses: string[] };
+  lastActivityAt: string | null;
   courses: CourseCell[];
 };
 
-type OverviewApi = { items: OverviewRow[]; onlineWindowMs: number };
+type OverviewApi = { items: OverviewRow[] };
 
 const AUTO_REFRESH_MS = 15000;
 
@@ -38,24 +38,34 @@ function fmt(dt: string | null) {
   return new Date(dt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
 }
 
-function timeAgo(dt: string | null) {
-  if (!dt) return "ไม่เคย signed in";
-  const ms = Date.now() - new Date(dt).getTime();
-  if (ms < 60_000) return "เมื่อสักครู่";
-  const mins = Math.floor(ms / 60_000);
-  if (mins < 60) return `${mins} นาทีที่แล้ว`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} ชม.ที่แล้ว`;
-  const days = Math.floor(hrs / 24);
-  return `${days} วันที่แล้ว`;
-}
-
 const STATUS_STYLE: Record<CourseStatus, { label: string; className: string }> = {
   locked: { label: "LOCKED", className: "bg-emerald-900/50 text-emerald-200" },
   in_progress: { label: "กำลังทำอยู่ตอนนี้", className: "bg-cyan-900/60 text-cyan-200 animate-pulse" },
   expired: { label: "หมดเวลา (ยังไม่ล็อก)", className: "bg-rose-900/50 text-rose-200" },
   not_started: { label: "ยังไม่เริ่ม", className: "bg-slate-800/60 text-slate-300" },
 };
+
+function funnelBadge(latestStatus: OverviewRow["latestStatus"]) {
+  switch (latestStatus.stage) {
+    case "doing":
+      return {
+        text: `กำลังทำ ${latestStatus.courses.join(", ")} อยู่`,
+        className: "bg-cyan-900/60 text-cyan-200 animate-pulse",
+      };
+    case "locked":
+      return {
+        text: `Locked: ${latestStatus.courses.join(", ")}`,
+        className: "bg-emerald-900/50 text-emerald-200",
+      };
+    case "expired":
+      return {
+        text: `หมดเวลา: ${latestStatus.courses.join(", ")}`,
+        className: "bg-rose-900/50 text-rose-200",
+      };
+    default:
+      return { text: "Signed in — ยังไม่เริ่มคอร์สไหน", className: "bg-slate-800/60 text-slate-300" };
+  }
+}
 
 export default function AdminOverviewClient() {
   const [data, setData] = useState<OverviewApi | null>(null);
@@ -118,10 +128,10 @@ export default function AdminOverviewClient() {
         <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-blue-500/20 p-6 shadow-2xl mb-8">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold">Admin — Overview (Signed in / Live status)</h1>
+              <h1 className="text-3xl font-bold">Admin — Overview (Live status)</h1>
               <p className="text-blue-300/80 text-sm mt-1">
-                รีเฟรชอัตโนมัติทุก {AUTO_REFRESH_MS / 1000} วินาที — ใครกำลังทำข้อสอบอยู่ตอนนี้จะขึ้น
-                &ldquo;กำลังทำอยู่ตอนนี้&rdquo;
+                รีเฟรชอัตโนมัติทุก {AUTO_REFRESH_MS / 1000} วินาที — สถานะล่าสุดของแต่ละคน:
+                signed in → กำลังทำคอร์ส → locked (ส่งแล้ว)
               </p>
             </div>
             <button
@@ -148,7 +158,7 @@ export default function AdminOverviewClient() {
               <thead className="bg-black/50">
                 <tr>
                   <th className="p-4 text-left">ชื่อ</th>
-                  <th className="p-4 text-left">Signed in</th>
+                  <th className="p-4 text-left">สถานะล่าสุด</th>
                   <th className="p-4 text-left">Course 1</th>
                   <th className="p-4 text-left">Course 2</th>
                   <th className="p-4 text-left">Course 3</th>
@@ -158,30 +168,21 @@ export default function AdminOverviewClient() {
               <tbody>
                 {rows.map((r) => {
                   const showUnlock = r.role !== "ADMIN";
+                  const badge = funnelBadge(r.latestStatus);
                   return (
                     <tr key={r.id} className="border-t border-blue-500/10 hover:bg-white/5 align-top">
                       <td className="p-4 font-medium">
                         <div>{r.displayName}</div>
                         <div className="text-xs text-blue-400/70">{r.role}</div>
-                        {r.doingNow && (
-                          <div className="mt-1 text-xs font-bold text-cyan-300">
-                            ● กำลังเปิด {r.doingNow} อยู่
-                          </div>
-                        )}
                       </td>
 
                       <td className="p-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            r.online
-                              ? "bg-emerald-900/50 text-emerald-200"
-                              : "bg-slate-800/60 text-slate-300"
-                          }`}
-                        >
-                          {r.online ? "ONLINE" : "OFFLINE"}
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${badge.className}`}>
+                          {badge.text}
                         </span>
-                        <div className="text-xs text-blue-400/70 mt-1">{timeAgo(r.lastSeenAt)}</div>
-                        <div className="text-[10px] text-blue-500/50">{fmt(r.lastSeenAt)}</div>
+                        <div className="text-[10px] text-blue-500/50 mt-1">
+                          กิจกรรมล่าสุด: {fmt(r.lastActivityAt)}
+                        </div>
                       </td>
 
                       {r.courses.map((c) => {
