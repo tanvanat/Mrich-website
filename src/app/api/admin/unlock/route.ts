@@ -10,6 +10,7 @@ import {
 const COURSE_FORM_MAP: Record<string, string> = {
   "mindset-principles": "mrich-course1",
   proactive: "mrich-course2",
+  habit_one_two: "mrich-course3",
   default: "mrich-assessment-v1",
 };
 
