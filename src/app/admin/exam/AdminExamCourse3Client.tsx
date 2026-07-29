@@ -112,7 +112,7 @@ export default function AdminExamCourse3Client() {
   async function load() {
     setLoading(true);
     try {
-      const { res, json } = await fetchJson<AdminApi>("/api/admin/attempts");
+      const { res, json } = await fetchJson<AdminApi>("/api/admin/responses");
       if (!res.ok) { alert((json as any)?.error || "โหลดข้อมูลไม่ได้"); return; }
       if (json) setData(json);
     } finally {

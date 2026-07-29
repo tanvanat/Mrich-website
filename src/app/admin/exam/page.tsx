@@ -22,6 +22,13 @@ export default async function Page({ searchParams }: PageProps) {
       <div className="max-w-7xl mx-auto px-6 pt-6">
         <div className="flex flex-wrap gap-3">
           <Link
+            href="/admin/overview"
+            className="rounded-full px-4 py-2 text-sm font-bold border transition bg-white/5 text-blue-100 border-blue-300/20 hover:bg-white/10"
+          >
+            ← Overview
+          </Link>
+
+          <Link
             href="/admin/exam"
             className={`rounded-full px-4 py-2 text-sm font-bold border transition ${
               !isCourse2 && !isCourse3
