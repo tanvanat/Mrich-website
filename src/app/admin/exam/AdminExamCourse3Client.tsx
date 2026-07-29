@@ -260,7 +260,7 @@ export default function AdminExamCourse3Client() {
                   const locked = data?.stateMap?.[rowKey]?.locked ?? false;
                   const role = data?.stateMap?.[rowKey]?.role ?? r.user?.role ?? "LEARNER";
                   const nickname = normalizeNick(getDisplayName(r));
-                  const showUnlock = isAdmin && role !== "ADMIN" && !!nickname;
+                  const showUnlock = isAdmin && locked && role !== "ADMIN" && !!nickname;
 
                   return (
                     <tr key={r.id} className="border-t border-blue-500/10 hover:bg-white/5">
